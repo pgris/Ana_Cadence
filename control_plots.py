@@ -105,8 +105,8 @@ def Select_band(thedict,band,nsel_before,nsel_after,addit='',coadding=True,befor
 
 def Histo_ratio(thedict, nsel_before,nsel_after,what,addit='',coadd=False,before_after=True):
 
-    num_bins=24
-    range=[0.0,0.8]
+    num_bins=30
+    range=[0.0,1.]
     
     hista, bin_edgesa = np.histogram(thedict['z_sim'],bins=num_bins,range=range)
 
@@ -154,8 +154,8 @@ def Histo_ratio(thedict, nsel_before,nsel_after,what,addit='',coadd=False,before
 
 def Histo_ratio_new(thedict, dict_combi,what,addit='',coadd=False,before_after=True):
 
-    num_bins=24
-    range=[0.0,0.8]
+    num_bins=30
+    range=[0.0,1.]
     
     hista, bin_edgesa = np.histogram(thedict['z_sim'],bins=num_bins,range=range)
 
@@ -363,7 +363,7 @@ if Plot_eff_z_per_season:
 
     labs = [l.get_label() for l in tot_label]
    
-    axc.set_xlim(0, 0.8)
+    axc.set_xlim(0, 1.)
     axc.set_ylim(0, 1.)
     #axc.legend(tot_label, labs, ncol=2,bbox_to_anchor=(1.0, 0.16),loc='lower right',prop={'size':10},frameon=False)
     axc.legend(tot_label, labs, ncol=2,loc='upper left',prop={'size':12},frameon=False)
@@ -447,7 +447,7 @@ if Plot_eff_z_all:
 
     labs = [l.get_label() for l in tot_label]
    
-    axc.set_xlim(0, 0.8)
+    axc.set_xlim(0, 1.)
     axc.set_ylim(0, 1.)
     #axc.legend(tot_label, labs, ncol=2,bbox_to_anchor=(1.0, 0.16),loc='lower right',prop={'size':10},frameon=False)
     axc.legend(tot_label, labs, ncol=2,loc='upper left',prop={'size':12},frameon=False)
