@@ -157,7 +157,7 @@ class Ana_MyMetrics:
     def Fill_Fit_Results(self,dict_fit):
 
         #for val in ['error_calc','error_opsim','error_coadd_calc','error_coadd_opsim']:
-        for val in ['error_coadd_calc','error_coadd_opsim']:
+        for val in ['error_coadd_through','error_coadd_opsim']:
             addit=''
             addita=''
             if val.count('opsim') > 0:
@@ -207,7 +207,7 @@ class Ana_MyMetrics:
 
     def Fill_Supernovae(self, dict_fit):
 
-        totag='error_coadd_calc'
+        totag='error_coadd_through'
 
         addit=''
         addita=''
