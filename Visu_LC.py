@@ -66,7 +66,7 @@ file='SuperNova_'+opts.sntype+'_'+opts.fieldname+'_'+str(opts.fieldid)+'_'+str(o
 
 #file='SuperNova_'+sntype+'_WFD_309_'+str(zmin)+'_'+str(zmax)+'_salt2-extended_10_11.pkl'
 opsim_release='minion_1016'
-thedir='Sim_'+opsim_release
+thedir='../Make_Cadence/Sim_'+opsim_release
 filenames=[]
 
 filenames.append(thedir+'/'+file)
@@ -109,7 +109,8 @@ for filtre in bands:
     sncosmo.registry.register(band)
 
 Visu_LC=False
-Compare_Errors=True
+Compare_Errors=False
+Get_m5=True
 
 if Visu_LC:
     for oob in all_obs:
@@ -260,12 +261,57 @@ if Compare_Errors:
                         axa[k][j%2].plot(coadd['time']-coadd['time'].min(),coadd['flux']/coadd['fluxerr'],'ro')
                         #axa[k][j%2].plot(selobs['expMJD']-selobs['expMJD'].min(),selobs['flux']/selobs['err_flux_opsim'],'bo') 
 
+                    colors=['g','b']
                     if dict_fit is not None:
                     
                         #for pp,val in enumerate(['error_coadd_calc','error_coadd_opsim']):
-                        for pp,val in enumerate(['error_coadd_calc']):
+                        for pp,val in enumerate(['error_coadd_calc','error_coadd_through']):
                             dict_tag=dict_fit[val]
                             selcoadd=dict_tag['table_for_fit'][np.where(dict_tag['table_for_fit']['band']=='LSST::'+band)]
-                            axa[k][j%2].plot(selcoadd['time']-selcoadd['time'].min(),selcoadd['flux']/selcoadd['fluxerr'],'g.')
-                            print 'fit status',selcoadd
+                            axa[k][j%2].plot(selcoadd['time']-selcoadd['time'].min(),selcoadd['flux']/selcoadd['fluxerr'],colors[pp]+'.')
+                            print 'fit status',val,selcoadd
                 plt.show()
+if Get_m5:
+    dtype=[]
+    for oob in all_obs:
+        for i,obj in enumerate(oob):
+            print i,obj['status']
+            dict_fit=obj['fit']
+            if obj['status'] != 'Killed':
+                dtype=obj['observations'].dtype
+                break
+                
+    
+
+    resu=np.zeros((0,1),dtype=dtype)
+    print 'hello',resu.dtype
+    iop=-1
+    for oob in all_obs:
+        iop+=1
+        for i,obj in enumerate(oob):
+            print i,obj['status']
+            dict_fit=obj['fit']
+            if obj['status'] != 'Killed'and obj['observations']!= None:
+                if iop == 0:
+                    print 'bbrbrbrbr',obj['observations']
+                    resu=obj['observations']
+                else:
+                    resu=np.concatenate((resu,obj['observations']),axis=1)
+
+    print 'alors',resu
+
+    figa, axa = plt.subplots(ncols=2, nrows=3, figsize=(10,9))
+    print resu.dtype
+    for j,band in enumerate(['u','g','r','i','z','y']):
+        if j<2:
+            k=0
+        if j>= 2 and j < 4:
+            k=1
+        if j>=4:
+            k=2
+                    
+        selobs=resu[np.where(resu['filter']==band)]
+        print 'hello',band,len(selobs)
+        axa[k][j%2].plot(selobs['snr_m5_opsim'],selobs['snr_m5_through'],'k.')
+    plt.show()
+
