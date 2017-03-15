@@ -7,6 +7,54 @@ import math
 import healpy as hp
 from astropy.table import Table
 from optparse import OptionParser
+from Parameters import parameters
+ 
+def Get_mean_finSeeing(observations):
+    
+    res=[]
+    params=parameters()
+    for obs in observations:
+        filtre=obs['filter'][0]
+        seeing=obs['rawSeeing']
+        airmass=obs['airmass']
+        Filter_Wavelength_Correction = np.power(500.0 / params.filterWave[filtre], 0.3)
+        Airmass_Correction = math.pow(obs['airmass'],0.6)
+        FWHM_Sys = params.FWHM_Sys_Zenith * Airmass_Correction
+        FWHM_Atm = seeing * Filter_Wavelength_Correction * Airmass_Correction
+        finSeeing = params.scaleToNeff * math.sqrt(np.power(FWHM_Sys,2) + params.atmNeffFactor * np.power(FWHM_Atm,2))
+        res.append(finSeeing)
+    return np.mean(res)
+
+def Get_coadd(filt):
+   
+    
+    dict_for_coadd={}
+    filtc=filt.copy()
+    filtc.reshape((filtc.size,1))
+    if len(filtc) > 0:
+        inum=0
+        dict_for_coadd[inum]=np.zeros((0,1),filtc.dtype)
+        #print 'timediff',24.*60.*60.*(filtc['time']-filtc['time'][0])
+                                
+        iloop=0
+        #print 'blablabla',dict_for_coadd[inum]
+       
+        dict_for_coadd[inum]=np.vstack([dict_for_coadd[inum],filtc[iloop]])
+                                
+        if len(filtc) > 1:
+            while iloop < len(filtc)-1:   
+                diff_time_sec=24.*60.*60.*(filtc['expMJD'][iloop+1]-filtc['expMJD'][iloop])
+                #print 'alors ???',diff_time_sec,inum
+                if diff_time_sec > 40.:
+                    inum+=1
+                    dict_for_coadd[inum]=np.zeros((0,1),filtc.dtype)
+                
+                dict_for_coadd[inum]=np.vstack([dict_for_coadd[inum],filtc[iloop]])
+                    
+                iloop+=1
+        #print 'thedict',dict_for_coadd
+
+    return dict_for_coadd
 
 def Copy_Season(season,shift=0.,frac=1.):
     
@@ -173,7 +221,7 @@ if opts.rolling:
     addit='_'+str(opts.nmergers)+'_'+str(opts.merge_factor)
 
 List=[prefix+'_'+opts.fieldname+'_'+str(opts.fieldid)+addit+'.pkl']
-
+bands=['u','g','r','i','z','y']
 
 thedict={}
 fieldid={}
@@ -235,7 +283,8 @@ Check_m5=False
 Make_Rolling=False
 Gime_Seasons=False
 Draw_Seasons=False
-Ana_Cadence=True
+Ana_Cadence=False
+Dump_in_File=True
 
 
 if Draw_Molleid:
@@ -536,7 +585,7 @@ if Ana_Cadence:
 
     seasons=Get_Seasons(thedict[0]['dataSlice'])
     
-    bands=['u','g','r','i','z','y']
+   
     dtypes=[('season_id',np.int),('night_id',np.int)]
     
     for band in bands:
@@ -727,6 +776,53 @@ if Ana_Cadence:
     
     """
         
+
+
+if Dump_in_File:
+#band:
+#mjd:
+#exptime:
+#realization:
+#seeing:
+#moon_frac:
+#sky:
+#kAtm:
+#airmass:
+#m5sigmadepth_mean:
+#m5sigmadepth_recalc:
+#Nexp:
+    legend='#band #mjd #exptime #seeing #moon_frac #sky #kAtm #airmass #m5sigmadepth #Nexp'
+    
+    todisplay=['filter','expMJD','expTime','rawSeeing','moonPhase','filtSkyBrightness','airmass']
+
+    toprocess=thedict[0]['dataSlice']
+    params=parameters()
+    print legend
+
+
+    outputfile  = open(prefix+'_'+opts.fieldname+'_'+str(opts.fieldid)+addit+'.txt','wb') 
+    outputfile.write(legend+'\n')
+    for band in bands:
+        coadd=Get_coadd(toprocess[np.where(toprocess['filter']==band)])
+        #print 'ee',band,len(coadd)
+        for key,val in coadd.items():
+            filtre=val['filter'][0][0]
+            toprint = 'LSST::'+filtre+' '
+            toprint+=str(format(np.mean(val['expMJD']),'.7f'))+' '
+            toprint+=str(int(np.sum(val['visitExpTime'])))+' '
+            toprint+=str(format(np.mean(Get_mean_finSeeing(val)),'.7f'))+' '
+            toprint+=str(format(np.mean(val['moonPhase']),'.7f'))+' '
+            toprint+=str(format(np.mean(val['filtSkyBrightness']),'.7f'))+' '
+            toprint+=str(params.kAtm[filtre])+' '
+            toprint+=str(format(np.mean(val['airmass']),'.7f'))+' '
+            toprint+=str(format(np.mean(val['fiveSigmaDepth']),'.7f'))+' '
+            toprint+=str(len(val))
+            outputfile.write(toprint+'\n')
+            print toprint
+        
+    outputfile.close()
+
+
 
 
 plt.show()
