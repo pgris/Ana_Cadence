@@ -66,6 +66,22 @@ def Get_Seasons(filtc):
     dict_for_seasons={}
     if len(filtc) > 0:
         inum=0
+        print filtc.dtype,filtc.shape,type(filtc)
+        sorted_data=[]
+        for data in filtc:
+            if np.isscalar(data["expMJD"]):
+                sorted_data.append(data["expMJD"])
+            else:
+                sorted_data.append(data["expMJD"][0])
+        #sorted_data=sorted_data.sort(axis=1)
+        ind =np.argsort(sorted_data)
+        
+        #print ind
+        filtc=filtc[ind]
+        """
+        plt.plot(filtc['expMJD'],filtc['airmass'],'b.')
+        plt.show()
+        """
         #dict_for_seasons[inum]=Table(names=filtc.dtype.names,dtype=filtc.dtype)
         dict_for_seasons[inum]=np.zeros((60,1),dtype=filtc.dtype)
         #print 'timediff',24.*60.*60.*(filtc['time']-filtc['time'][0])
@@ -96,8 +112,6 @@ def Get_Seasons(filtc):
                 
                 
     return dict_for_seasons
-
-outdir='Obs_minion_1016'
 
 #List=['Observations_DD_290.0_6.097944_-1.10516.pkl','Observations_WFD_309.0_4.189756_-1.082474.pkl']
 
@@ -144,11 +158,21 @@ dCm_infinity = {'u':0.56,
 
 parser = OptionParser()
 parser.add_option("-f", "--fieldname", type="string", default="DD", help="filter [%default]")
-parser.add_option("-n", "--fieldid", type="int", default=290, help="filter [%default]")
+parser.add_option("-F", "--fieldid", type="int", default=290, help="filter [%default]")
+parser.add_option("-r", "--rolling", type="int", default=0, help="filter [%default]")
+parser.add_option("-n", "--nmergers", type="int", default=3, help="filter [%default]")
+parser.add_option("-p", "--merge_factor", type="int", default=80, help="merge factor (%) [%default]")
 
 opts, args = parser.parse_args()
+outdir='/sps/lsst/data/dev/pgris/Obs_minion_1016'
+addit=''
 
-List=['Observations_'+opts.fieldname+'_'+str(opts.fieldid)+'.pkl']
+prefix='Observations'
+if opts.rolling:
+    prefix='Rolling_Cadence'
+    addit='_'+str(opts.nmergers)+'_'+str(opts.merge_factor)
+
+List=[prefix+'_'+opts.fieldname+'_'+str(opts.fieldid)+addit+'.pkl']
 
 
 thedict={}
@@ -156,7 +180,7 @@ fieldid={}
 for i,name in enumerate(List):
     pkl_file = open(outdir+'/'+name,'rb')
     thedict[i]=pkl.load(pkl_file)
-    fieldid[i]=np.int(name.split('_')[2].split('.')[0])
+    #fieldid[i]=np.int(name.split('_')[2].split('.')[0])
 
 print thedict[0].keys(),thedict[0]['dataSlice'].dtype.names
 
@@ -209,9 +233,9 @@ print n_noobs,float(n_noobs)/float(nvals)
 Draw_Molleid=False
 Check_m5=False
 Make_Rolling=False
-Gime_Seasons=True
+Gime_Seasons=False
 Draw_Seasons=False
-Ana_Cadence=False
+Ana_Cadence=True
 
 
 if Draw_Molleid:
@@ -270,7 +294,11 @@ if Gime_Seasons:
  
     seasons=Get_Seasons(thedict[0]['dataSlice'])
 
-    outfile= open('Seasons/Seasons_'+opts.fieldname+'_'+str(opts.fieldid)+'.txt', 'w')
+    outputdir='/sps/lsst/data/dev/pgris/Seasons'
+    after='Seasons'
+    if prefix.count('Rolling'):
+        after+='_Rolling'
+    outfile= open(outputdir+'/'+after+'_'+opts.fieldname+'_'+str(opts.fieldid)+addit+'.txt', 'w')
 
     for iseason,season in seasons.items(): 
         print 'min max',iseason,np.min(season['expMJD']),np.max(season['expMJD'])
@@ -506,10 +534,7 @@ if Draw_Seasons:
 
 if Ana_Cadence:
 
-
     seasons=Get_Seasons(thedict[0]['dataSlice'])
-
-
     
     bands=['u','g','r','i','z','y']
     dtypes=[('season_id',np.int),('night_id',np.int)]
@@ -522,11 +547,14 @@ if Ana_Cadence:
     tab_resu=np.zeros((60,1),dtype=[dtype for dtype in dtypes])  
     
     ievt=-1
+    nnight_tot={}
+
     for key,season in seasons.items():
         #print key,season
         min_time=np.min(season['expMJD'])
         max_time=np.max(season['expMJD'])
         tmin=int(min_time)
+        nnight_tot[key]=int(max_time-min_time)
         while tmin <=max_time:
             tmax=tmin+1.
             select_time=season[np.where(np.logical_and(season['expMJD']>=tmin,season['expMJD']<tmax))]
@@ -538,13 +566,12 @@ if Ana_Cadence:
                 if len(tab_resu) <= ievt:
                     tab_resu=np.resize(tab_resu,(len(tab_resu)+100,1))
 
-
                 tab_resu['season_id'][ievt]=key
                 tab_resu['night_id'][ievt]=tmin-min_time+1
 
                 for j,band in enumerate(bands):
                     select=select_time[np.where(select_time['filter']==band)]
-                    print key,band,len(select)
+                    #print key,band,len(select)
                     diff_time=[]
 
                     if len(select) > 0.:
@@ -565,11 +592,13 @@ if Ana_Cadence:
 
     tab_resu=np.resize(tab_resu,(ievt+1,1))    
 
-    print tab_resu
+    #print tab_resu
 
     moy_visit={}
     rms_visit={}
     nobs={}
+    frequence_obs={}
+    frequence_abs={}
     filtercolors = {'u':'b', 'g':'c', 'r':'g', 'i':'y', 'z':'r', 'y':'m'}
     fontsize=15
 
@@ -580,9 +609,11 @@ if Ana_Cadence:
         moy_visit[iseason]=[]
         rms_visit[iseason]=[]
         nobs[iseason]=[]
+        frequence_obs[iseason]=[]
+        frequence_abs[iseason]=[]
         filt_num=[]
 
-        Plot_this=True
+        Plot_this=False
 
         if iseason==0:
             Plot_this=True
@@ -591,8 +622,13 @@ if Ana_Cadence:
         if Plot_this:
             figb, axb = plt.subplots(ncols=1, nrows=3, figsize=(10,9))
             figb.suptitle('Field type:'+opts.fieldname+' Field ID: '+str(opts.fieldid)+' - Season '+str(iseason+1))
-        
+            
+
+        if iseason == 0:
+            print sel
+
         for j,band in enumerate(bands):
+            
             if Plot_this:
                 axb[0].plot(sel['night_id'],sel['n_'+band],filtercolors[band]+'o')
                 axb[1].errorbar(sel['night_id'],sel['mean_diff_time_'+band],yerr=sel['rms_diff_time_'+band],fmt='None',color = filtercolors[band])
@@ -600,6 +636,8 @@ if Ana_Cadence:
             moy_visit[iseason].append(np.mean(sell['n_'+band]))
             rms_visit[iseason].append(np.std(sell['n_'+band]))
             nobs[iseason].append(len(sell['n_'+band]))
+            frequence_obs[iseason].append(float(len(sel)/float(len(sell['n_'+band]))))
+            frequence_abs[iseason].append(float(nnight_tot[iseason])/float(len(sell['n_'+band])))
             filt_num.append(j)
 
         if Plot_this: 
@@ -634,16 +672,43 @@ if Ana_Cadence:
     axc[0].set_ylabel(r'<N$_{visit}$> (per night)',{'fontsize': fontsize})
     axc[0].set_xlabel(r'Filter',{'fontsize': fontsize})
     labs = [l.get_label() for l in tot_label]
-    axc[0].legend(tot_label, labs, ncol=2,loc='lower right',prop={'size':12},frameon=False)
+    axc[0].legend(tot_label, labs, ncol=2,loc='upper left',prop={'size':12},frameon=False)
     axc[1].set_xlim(-0.5, 5.5) 
-    axc[1].set_ylim(0,40)
-    axc[1].set_ylabel(r'$N_{nights}^{obs}$',{'fontsize': fontsize})
+    axc[1].set_ylim(0,70)
+    axc[1].set_ylabel(r'$N_{nights}$ ($N^{obs} > 0$)',{'fontsize': fontsize})
     axc[1].set_xlabel(r'Filter',{'fontsize': fontsize})
 
     
     labs = [l.get_label() for l in tit_label]
-    axc[1].legend(tit_label, labs, ncol=2,loc='lower right',prop={'size':12},frameon=False)
+    axc[1].legend(tit_label, labs, ncol=2,loc='upper left',prop={'size':12},frameon=False)
     
+    figd, axd = plt.subplots(ncols=1, nrows=2, figsize=(10,9))
+    tot_label=[]
+    tit_label=[]
+    
+    for iseason in range(10):
+        ll='Season '+str(iseason+1)
+        #tot_label.append(axd[0].errorbar(filt_num,frequence_obs[iseason],fmt='--o',ms=5,color=mycols[iseason],label=ll))
+        tot_label.append(axd[0].errorbar(filt_num,frequence_obs[iseason],linestyle=myls[iseason],color=mycols[iseason],label=ll))
+        tit_label.append(axd[1].errorbar(filt_num,frequence_abs[iseason],linestyle=myls[iseason],color=mycols[iseason],label=ll))
+        
+    axd[0].set_xlim(-0.5,5.5) 
+    axd[0].set_ylabel(r'1/<$N_{nights}^{obs}$> (obs nights only)',{'fontsize': fontsize})
+    axd[0].set_xlabel(r'Filter',{'fontsize': fontsize})
+    labs = [l.get_label() for l in tot_label]
+    axd[0].legend(tot_label, labs, ncol=2,loc='upper right',prop={'size':12},frameon=False)
+    axd[1].set_xlim(-0.5,5.5) 
+    axd[1].set_ylim(1.,20.)
+    axd[1].set_ylabel(r'1/<$N_{nights}^{obs}$>',{'fontsize': fontsize})
+    axd[1].set_xlabel(r'Filter',{'fontsize': fontsize})
+
+    
+    labs = [l.get_label() for l in tit_label]
+    axd[1].legend(tit_label, labs, ncol=2,loc='upper right',prop={'size':12},frameon=False)
+
+    
+
+
     """
 
     figb, axb = plt.subplots(ncols=2, nrows=3, figsize=(10,9))
