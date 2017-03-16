@@ -278,17 +278,18 @@ for i in range(nvals):
 print n_noobs,float(n_noobs)/float(nvals)
 """
 
-Draw_Molleid=False
+Draw_Molleid=True
 Check_m5=False
 Make_Rolling=False
 Gime_Seasons=False
 Draw_Seasons=False
 Ana_Cadence=False
-Dump_in_File=True
+Dump_in_File=False
 
 
 if Draw_Molleid:
-    for i in range(5):
+
+    for i in range(1):
         print 'dust',i,thedict[i]['ebvofMW']
         data['RA'].append(np.rad2deg(thedict[i]['dataSlice']['fieldRA'][0]))
         data['Dec'].append(np.rad2deg(thedict[i]['dataSlice']['fieldDec'][0]))
@@ -333,8 +334,8 @@ if Draw_Molleid:
 
         figc, axc = plt.subplots(ncols=2, nrows=2, figsize=(10,9))
         
-        for i in range(5):
-            print 'hello',i,fieldid[i]
+        for i in range(1):
+            #print 'hello',i,fieldid[i]
             axc[0][0].hist(thedict[i]['dataSlice']['airmass'],bins=20,histtype='step')
             axc[0][1].hist(thedict[i]['dataSlice']['filtSkyBrightness'],bins=20,histtype='step')
 
