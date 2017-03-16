@@ -98,8 +98,7 @@ for typ in fieldtypes:
 
 tot_label=[]
 
-fig = plt.figure(figsize=(8,6))
-ax = fig.add_subplot(111,projection="aitoff")
+
 #ax = fig.add_subplot(111)
 
 col={}
@@ -109,12 +108,16 @@ col['GalacticPlane']='k'
 col['SouthCelestialPole-18']='g'
 col['NorthEclipticSpur-18c']='y'
 
+fig = plt.figure(figsize=(8,6))
+ax = fig.add_subplot(111,projection="aitoff")
+
 for typ in fieldtypes:
     # As next step, those coordinates are transformed into an astropy.coordinates
     # astropy.coordinates.SkyCoord object.
-    c = SkyCoord(ra=fieldRA[typ]* u.radian, dec=fieldDec[typ]* u.radian, frame='icrs')
+    c = SkyCoord(ra=np.rad2deg(fieldRA[typ]), dec=np.rad2deg(fieldDec[typ]),unit='degree', frame='icrs')
 
     ra_rad = c.ra.wrap_at(180 * u.deg).radian
+    #ra_rad=c.ra.radian
     dec_rad = c.dec.radian
 
     """
@@ -130,6 +133,15 @@ ax.legend(tot_label, labs, ncol=2,loc='lower right',prop={'size':5},frameon=Fals
 ax.legend(bbox_to_anchor=(0.5, -0.1), loc=2, borderaxespad=0.,fontsize=10.)
 ax.grid(True)
 
+figc = plt.figure(figsize=(8,6))
+axc = figc.add_subplot(111)
+
+for typ in fieldtypes:
+    thelabel=typ
+    axc.scatter(np.rad2deg(fieldRA[typ]), np.rad2deg(fieldDec[typ]),color=col[typ],label=thelabel)
+    #ax.set_xlim(360., 0.)
+
+axc.legend(loc=2, borderaxespad=0.,fontsize=10.)
 
 
 
@@ -140,9 +152,55 @@ ax.scatter(dec_lsst.degree, ra_lsst.degree,color='b')
 """
 figb = plt.figure(figsize=(8,6))
 axb = figb.add_subplot(111)
+
 for key,num in thedict.items():
     for keyb,val in num.items():
         axb.plot(val['expMJD'],val['airmass'],col[typ]+'.')
 
+nvisits={}
+for typ in fieldtypes:
+    nvisits[typ]={}
+    for band in bands:
+        nvisits[typ][band]=[]
+        
+for key,num in thedict.items():
+    for keyb,val in num.items():
+        for band in bands:
+            sel=val[np.where(val['filter']==band)]
+            nvisits[key][band].append(len(sel))
+
+mean_visit={}
+rms_visit={}
+for typ in fieldtypes:
+    mean_visit[typ]=[]
+    rms_visit[typ]=[]
+    for band in bands:
+        print typ,band,np.mean(nvisits[typ][band]),np.std(nvisits[typ][band])
+        print nvisits[typ][band]
+        mean_visit[typ].append(np.mean(nvisits[typ][band]))
+        rms=np.std(nvisits[typ][band])
+        if rms < 0.001:
+            rms=0.001
+        rms_visit[typ].append(rms)
+  
+myfmt={}
+myfmt['DDF']='--o'
+myfmt['WFD']='--s'
+myfmt['GalacticPlane']='--*'
+myfmt['SouthCelestialPole-18']='--+'
+myfmt['NorthEclipticSpur-18c']='--p'
+                             
+filters=[0,1,2,3,4,5]
+fige, axe = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
+for typ in fieldtypes:
+    axe.errorbar(filters,mean_visit[typ],yerr=rms_visit[typ],fmt=myfmt[typ],color =col[typ],label=typ)
+
+fontsize=12
+axe.set_ylabel(r'<N$_{visit}$> (per field - 10 years)',{'fontsize': fontsize})
+axe.set_xlabel(r'Filter',{'fontsize': fontsize})
+axe.set_xlim(-0.5, 5.5)
+axe.set_ylim(10.,5000.)
+axe.set_yscale('log')
+axe.legend(loc='center left', fontsize=12.)
 
 plt.show()

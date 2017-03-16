@@ -9,6 +9,23 @@ from astropy.table import Table
 from optparse import OptionParser
 from Parameters import parameters
  
+
+def Get_fiveSigmaDepth_coadd(nmeas,m5):
+    
+    g=2.3
+    alpha=1./g
+    Nosq=(0.04*np.power(10,-0.4*m5)-alpha)*np.power(10,-0.4*m5)
+    print 'hello',Nosq
+    No=float(nmeas)*np.sqrt(Nosq)
+    
+    delta=alpha*alpha+4.*No*No*0.04/float(nmeas)
+    print 'delta',delta
+    sol=(-alpha+np.sqrt(delta))/(2*No*No)
+    print 'solution',sol
+    return 2.5*np.log10(sol)
+    
+
+
 def Get_mean_finSeeing(observations):
     
     res=[]
@@ -283,8 +300,8 @@ Check_m5=False
 Make_Rolling=False
 Gime_Seasons=False
 Draw_Seasons=False
-Ana_Cadence=True
-Dump_in_File=False
+Ana_Cadence=False
+Dump_in_File=True
 
 
 if Draw_Molleid:
@@ -818,6 +835,9 @@ if Dump_in_File:
             toprint+=str(format(np.mean(val['airmass']),'.7f'))+' '
             toprint+=str(format(np.mean(val['fiveSigmaDepth']),'.7f'))+' '
             toprint+=str(len(val))
+            #m5_coadd=Get_fiveSigmaDepth_coadd(len(val),np.mean(val['fiveSigmaDepth']))
+            m5_coadd=Get_fiveSigmaDepth_coadd(1.,np.mean(val['fiveSigmaDepth']))
+            print 'hello',np.mean(val['fiveSigmaDepth']),m5_coadd
             outputfile.write(toprint+'\n')
             print toprint
         
