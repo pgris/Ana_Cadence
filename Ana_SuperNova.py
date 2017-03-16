@@ -63,7 +63,7 @@ class Ana_MyMetrics:
 
         for filename in filenames:
             print 'opening',filename
-            pkl_file = open(filename,'rb')
+            pkl_file = open(filename,'r')
             objs = []
             while 1:
                 try:
@@ -293,15 +293,19 @@ parser.add_option("-n", "--fieldid", type="int", default=309, help="filter [%def
 parser.add_option("-s", "--season", type="int", default=-1, help="filter [%default]")
 parser.add_option("-t", "--sntype", type="string", default="Ia", help="filter [%default]")
 parser.add_option("-r", "--rolling", type="int", default=0, help="filter [%default]")
+parser.add_option("--nrolling", type="int", default=0, help="filter [%default]")
+parser.add_option("--merge_factor", type="int", default=0, help="filter [%default]")
 
 opts, args = parser.parse_args()
 
 #idlist=opts.fieldtype+'_'+str(opts.fieldnum)+'_'+str(opts.ra)+'_'+str(opts.dec)+'_'+str(opts.nevts)+'_'+opts.model
 addit=''
+addout=''
 if opts.rolling == 1:
     addit='Rolling_'
+    addout='_'+str(opts.nrolling)+'_'+str(opts.merge_factor)
 
-idlist=opts.sntype+'_'+addit+opts.fieldname+'_'+str(opts.fieldid)+'_'+str(opts.nevts)
+idlist=opts.sntype+'_'+addit+opts.fieldname+'_'+str(opts.fieldid)+'_'+str(opts.nevts)+addout
 
 if opts.season > -1:
     idlist+='_season_'+str(opts.season)

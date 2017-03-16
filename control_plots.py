@@ -235,15 +235,19 @@ parser.add_option("-n", "--fieldid", type="int", default=309, help="filter [%def
 parser.add_option("-s", "--season", type="int", default=-1, help="filter [%default]")
 parser.add_option("-t", "--sntype", type="string", default="Ia", help="filter [%default]")
 parser.add_option("-r", "--rolling", type="int", default=0, help="filter [%default]")
+parser.add_option("--nrolling", type="int", default=0, help="filter [%default]")
+parser.add_option("--merge_factor", type="int", default=0, help="filter [%default]")
 
 #fichname='output_DD_290_6.097944_-1.10516_3000_salt2-extended_4points.pkl'
 
 opts, args = parser.parse_args()
 
 addit=''
+addout=''
 if opts.rolling == 1:
     addit='Rolling_'
-ids=opts.sntype+"_"+addit+opts.fieldname+'_'+str(opts.fieldid)+'_'+str(opts.nevts)
+    addout='_'+str(opts.nrolling)+'_'+str(opts.merge_factor)
+ids=opts.sntype+"_"+addit+opts.fieldname+'_'+str(opts.fieldid)+'_'+str(opts.nevts)+addout
 if opts.season > -1:
     ids+='_season_'+str(opts.season)
 

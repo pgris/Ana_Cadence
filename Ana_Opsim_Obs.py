@@ -278,12 +278,12 @@ for i in range(nvals):
 print n_noobs,float(n_noobs)/float(nvals)
 """
 
-Draw_Molleid=True
+Draw_Molleid=False
 Check_m5=False
 Make_Rolling=False
 Gime_Seasons=False
 Draw_Seasons=False
-Ana_Cadence=False
+Ana_Cadence=True
 Dump_in_File=False
 
 
@@ -748,7 +748,7 @@ if Ana_Cadence:
     labs = [l.get_label() for l in tot_label]
     axd[0].legend(tot_label, labs, ncol=2,loc='upper right',prop={'size':12},frameon=False)
     axd[1].set_xlim(-0.5,5.5) 
-    axd[1].set_ylim(1.,20.)
+    axd[1].set_ylim(1.,40.)
     axd[1].set_ylabel(r'1/<$N_{nights}^{obs}$>',{'fontsize': fontsize})
     axd[1].set_xlabel(r'Filter',{'fontsize': fontsize})
 
