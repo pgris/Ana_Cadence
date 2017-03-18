@@ -86,7 +86,7 @@ for filename in filenames:
     all_obs.append(objs)
 
 
-val='error_coadd_calc'
+val='error_coadd_through'
 
 dust = sncosmo.OD94Dust()
 fitted_model=sncosmo.Model(source='salt2-extended', effects=[dust, dust],
@@ -108,20 +108,21 @@ for filtre in bands:
     band=sncosmo.Bandpass(transmission.lsst_system[filtre].wavelen, transmission.lsst_system[filtre].sb, name='LSST::'+filtre,wave_unit=u.nm)
     sncosmo.registry.register(band)
 
-Visu_LC=False
+Visu_LC=True
 Compare_Errors=False
-Get_m5=True
+Get_m5=False
 
 if Visu_LC:
     for oob in all_obs:
         for i,obj in enumerate(oob):
             print i,obj['status']
-            print i,obj['observations']['flux']
+            if obj['observations'] is not None:
+                print i,obj['observations']['flux']
             
             dict_fit=obj['fit']
             if dict_fit is not None:
                 dict_tag=dict_fit[val]
-                print dict_tag
+                print dict_tag['fit_status']
                 if dict_tag['fit_status'] == 'ok':
                     fitted_model.set(z=dict_tag['sncosmo_fitted']['z'])
                     fitted_model.set(t0=dict_tag['sncosmo_fitted']['t0'])
@@ -135,7 +136,7 @@ if Visu_LC:
 
                
                 
-                    if dict_tag['sncosmo_res']['ndof']>0 and dict_tag['sncosmo_res']['chisq']/dict_tag['sncosmo_res']['ndof']>5.:
+                    if dict_tag['sncosmo_res']['ndof']>0:
                         
                         filt=dict_tag['table_for_fit']
                         filtb=filt[np.where(np.logical_and(filt['flux']/filt['fluxerr']>5.,filt['flux']>0.))]
@@ -153,77 +154,35 @@ if Visu_LC:
                             filtcf=filtc
                             filtcc=filtcf[np.where(filtcf['time']-T0<=0.)]
                             filtcd=filtcf[np.where(filtcf['time']-T0>0.)]
-                        #print band,len(filtc),len(filtcc),len(filtcd)
                             nmeas_before[band]=len(filtcc)
                             nmeas_after[band]=len(filtcd)
-                        #nmeas_before[band]=len(filtc)
-                        #nmeas_after[band]=len(filtc)
-                            """
-                            if band == 'g':
-                           print Get_coadd(filtc) 
-                        """   
 
-                        pass_event=True
+                        pass_event=False
                     
-
-                        for band in ['g','r','i']:
-                            if nmeas_before[band] < n_meas or nmeas_after[band] < n_meas:
-                                pass_event = False
-                                #break
+                        test_one = nmeas_before['g'] >= n_meas and nmeas_after['g'] >= n_meas
+                        test_two = nmeas_before['r'] >= n_meas and nmeas_after['r'] >= n_meas
+                        test_three = nmeas_before['i'] >= n_meas and nmeas_after['i'] >= n_meas
+                        if (test_one and test_two) or (test_two and test_three):
+                            pass_event=True
 
                         if pass_event:
-                            zdiff=obj['z']-dict_tag['sncosmo_fitted']['z']
-                            print 'filtrons ',pass_event,obj['z'],dict_tag['sncosmo_fitted']['z'],zdiff
-                            for band in ['g','r','i']:
-                                print band,nmeas_before[band],nmeas_after[band]
 
-                            if zdiff < 100000:
-                                print 'plotting',zdiff
-                                select=dict_tag['table_for_fit'][np.where(dict_tag['table_for_fit']['flux']/dict_tag['table_for_fit']['fluxerr']>5.)]
-                                sncosmo.plot_lc(select, model=fitted_model,color='k',pulls=True,errors=dict_tag['sncosmo_res'].errors)
-                                
-                                """
-                                dust = sncosmo.OD94Dust()
-                                SN=sncosmo.Model(source='salt2-extended',effects=[dust, dust],
-                                                 effect_names=['host', 'mw'],
-                                                 effect_frames=['rest', 'obs'])
+                            dust = sncosmo.OD94Dust()                                                                
+                            SN=sncosmo.Model(source='salt2-extended',effects=[dust, dust],effect_names=['host', 'mw'],effect_frames=['rest', 'obs']) 
+                            SN.set(z=obj['z'])
+                            SN.set(t0=obj['t0'])
+                            SN.set(c=obj['c']) 
+                            SN.set(x1=obj['x1']) 
+                            SN.set_source_peakabsmag(-19.3, 'bessellB', 'vega',cosmo=cosmology.WMAP9)
+                            lsstmwebv = EBVbase()
+                            ebvofMW = lsstmwebv.calculateEbv(equatorialCoordinates=np.array([[obj['ra']], [obj['dec']]]))[0]
+                            print 'hello',obj['ra'],obj['dec'],ebvofMW
+                            SN.set(mwebv=ebvofMW)
+                            print 'simulated',obj['z'],obj['t0'],obj['c'],obj['x1']
+                            resb, fitted_modelb = sncosmo.fit_lc(dict_tag['table_for_fit'],SN,['z', 't0', 'x0', 'x1', 'c'],bounds={'z':(obj['z']-0.01,obj['z']+0.01)})
+                            sncosmo.plot_lc(dict_tag['table_for_fit'], model=fitted_modelb,color='k',pulls=True,errors=resb.errors) 
 
-                                SN.set(z=obj['z'])
-                                SN.set(t0=obj['t0'])
-                                SN.set(c=obj['c'])
-                                SN.set(x1=obj['x1'])
-
-                                #SN.set_source_peakabsmag(-19.3, 'bessellB', 'vega',cosmo=cosmology.WMAP9)
-                                SN.set_source_peakabsmag(25, 'bessellB', 'ab',cosmo=cosmology.WMAP9)
-                                
-                                lsstmwebv = EBVbase()
-                                ebvofMW = lsstmwebv.calculateEbv(equatorialCoordinates=np.array([[obj['ra']], [obj['dec']]]))[0]
-
-                                 
-                                print 'hello',obj['ra'],obj['dec'],ebvofMW
-                                SN.set(mwebv=ebvofMW)
-                               
-                                print 'simulated',obj['z'],obj['t0'],obj['c'],obj['x1']
-
-                                resb, fitted_modelb = sncosmo.fit_lc(coadd,SN,['z', 't0', 'x0', 'x1', 'c'],bounds={'z':(0.9*zmin, 1.1*zmax)})
-                
-                                sncosmo.plot_lc(coadd, model=fitted_modelb,color='k',pulls=True,errors=resb.errors)
-
-                                print resb
-                                """
-                        figbb, axbb = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
-                        myobs=obj['observations'][np.where(obj['observations']['filter']=='g')]
-                        axbb.plot(myobs['expMJD'],myobs['airmass'],'b.')
-
-                        figbc, axbc = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
-                        axbc.plot(myobs['airmass'],myobs['err_flux'],'b.')
-                    #axbc.plot(myobs['airmass'],myobs['snr_m5_through'],'b.')
-
-                        figbd, axbd = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
-                        axbd.plot(myobs['filtSkyBrightness'],myobs['err_flux'],'b.')
-                        
-                        plt.show()
-            #break
+                            plt.show()
 
 if Compare_Errors:
      for oob in all_obs:

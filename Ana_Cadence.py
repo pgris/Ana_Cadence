@@ -9,7 +9,7 @@ import healpy as hp
 from astropy.table import Table
 from optparse import OptionParser
 from Parameters import parameters
-
+#from mpl_toolkits.basemap import Basemap
 
 def Get_median_finSeeing(observations):
     
@@ -116,7 +116,7 @@ for typ in fieldtypes:
     # astropy.coordinates.SkyCoord object.
     c = SkyCoord(ra=np.rad2deg(fieldRA[typ]), dec=np.rad2deg(fieldDec[typ]),unit='degree', frame='icrs')
 
-    ra_rad = c.ra.wrap_at(180 * u.deg).radian
+    ra_rad = c.ra.wrap_at(-1800 * u.deg).radian
     #ra_rad=c.ra.radian
     dec_rad = c.dec.radian
 
@@ -127,7 +127,7 @@ for typ in fieldtypes:
     """
     thelabel=typ+' - '+str(round(100.*pourcent[typ],1))+'%'
     tot_label.append(ax.scatter(ra_rad, dec_rad,color=col[typ],label=thelabel))
-    #ax.set_xlim(360., 0.)
+    #ax.set_xlim(0., 360.)
 labs = [l.get_label() for l in tot_label]
 ax.legend(tot_label, labs, ncol=2,loc='lower right',prop={'size':5},frameon=False)
 ax.legend(bbox_to_anchor=(0.5, -0.1), loc=2, borderaxespad=0.,fontsize=10.)
