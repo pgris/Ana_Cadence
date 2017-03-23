@@ -149,14 +149,14 @@ axc.legend(loc=2, borderaxespad=0.,fontsize=10.)
 ra_lsst=coord.Angle(-30.24287,unit=u.degree)
 dec_lsst=coord.Angle(-70.74058,unit=u.degree)
 ax.scatter(dec_lsst.degree, ra_lsst.degree,color='b')
-"""
+
 figb = plt.figure(figsize=(8,6))
 axb = figb.add_subplot(111)
 
 for key,num in thedict.items():
     for keyb,val in num.items():
         axb.plot(val['expMJD'],val['airmass'],col[typ]+'.')
-
+"""
 nvisits={}
 for typ in fieldtypes:
     nvisits[typ]={}
@@ -176,7 +176,7 @@ for typ in fieldtypes:
     rms_visit[typ]=[]
     for band in bands:
         print typ,band,np.mean(nvisits[typ][band]),np.std(nvisits[typ][band])
-        print nvisits[typ][band]
+        #print nvisits[typ][band]
         mean_visit[typ].append(np.mean(nvisits[typ][band]))
         rms=np.std(nvisits[typ][band])
         if rms < 0.001:
