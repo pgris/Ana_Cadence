@@ -7,14 +7,14 @@ from astropy.table import vstack,Table
 import matplotlib.pyplot as plt
 
 filtre='r'
-airmass=1.
+airmass=1.2
 FWHMeff=[0.8,1.0,1.2]
 filtSkyBrightness=[19., 20., 21.]
 #mag_SN=18
-transmission=Throughputs()
+transmission=Throughputs(through_dir='NEW_THROUGH',atmos_dir='NEW_THROUGH',aerosol=False)
 transmission.Load_Atmosphere(airmass)
 
-step=0.1
+step=0.01
 
 m5_tab=Table(names=('seeing','msky','m5'), dtype=('f8', 'f8','f8'))
 snr_tab=Table(names=('seeing','msky','m5','mag','snr'), dtype=('f8', 'f8','f8','f8','f8'))
@@ -35,9 +35,9 @@ for seeing in FWHMeff:
         for mag_SN in np.arange(18,m5_calc,step):
 
             snr_m5_through,gamma_through=SignalToNoise.calcSNR_m5(mag_SN,transmission.lsst_atmos[filtre],m5_calc,photParams)
-
-            snr_tab.add_row((seeing,sky,m5_calc,mag_SN,snr_m5_through))
-            print 'Res',seeing, sky, mag_SN, m5_calc,1./snr_m5_through
+            if 1./snr_m5_through < 100.:
+                snr_tab.add_row((seeing,sky,m5_calc,mag_SN,snr_m5_through))
+            #print 'Res',seeing, sky, mag_SN, m5_calc,1./snr_m5_through
 
 col=['b','r','g']
 ls=['solid','dashed','dotted']
@@ -64,4 +64,29 @@ axb.set_ylabel('1./SNR')
 axb.legend(loc='upper left',prop={'size':10})
 figb.suptitle('Filter : '+filtre)
 
+mag_ref=28.
+
+for filtre in ['u','g','r','i','z']:
+    filtre_trans=transmission.lsst_atmos[filtre]
+    
+    wavelen_min, wavelen_max, wavelen_step=filtre_trans.getWavelenLimits(None,None,None)
+    flatSed = Sed()
+    flatSed.setFlatSED(wavelen_min, wavelen_max, wavelen_step)
+    # normalize the SED so that it has a magnitude equal to the desired m5
+    bandpass=Bandpass(wavelen=filtre_trans.wavelen, sb=filtre_trans.sb)
+    fNorm = flatSed.calcFluxNorm(mag_ref, bandpass)
+    flatSed.multiplyFluxNorm(fNorm)
+    counts = flatSed.calcADU(bandpass, photParams=photParams)
+    factor=counts*photParams.gain
+    #factor=counts
+    #print 'counts',filtre,counts,factor
+    flatSedb= Sed()
+    flatSedb.setFlatSED(wavelen_min, wavelen_max, wavelen_step)
+    mag_refb=mag_ref+2.5*np.log10(factor)
+    #print 'ZP',filtre,mag_refb
+    fNormb = flatSedb.calcFluxNorm(mag_refb, bandpass)
+    flatSedb.multiplyFluxNorm(fNormb)
+    countsb = flatSedb.calcADU(bandpass, photParams=photParams)
+    print 'ZP',filtre,mag_refb,countsb,countsb*photParams.gain
+    
 plt.show()
