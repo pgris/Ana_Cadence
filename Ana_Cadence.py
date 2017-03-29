@@ -4,12 +4,14 @@ import matplotlib.pyplot as plt
 import astropy.coordinates as coord
 from astropy.coordinates import SkyCoord
 import astropy.units as u
+from astropy.coordinates import ICRS
 import math
 import healpy as hp
 from astropy.table import Table
 from optparse import OptionParser
 from Parameters import parameters
 #from mpl_toolkits.basemap import Basemap
+
 
 def Get_median_finSeeing(observations):
     
@@ -41,11 +43,24 @@ def Load_Fields(fieldname):
 
     return theres
 
+def Get_Nearest(orig_table, val):
+   
+    table=Table(orig_table)
+    c = SkyCoord(ra=val['fieldRA']*u.radian, dec=val['fieldDec']*u.radian)  
+    catalog = SkyCoord(ra=table['fieldRA']*u.radian, dec=table['fieldDec']*u.radian)  
+    idx, d2d, d3d = c.match_to_catalog_sky(catalog)
+
+    #print 'astropy matching',idx,d2d,d3d,len(table),type(idx),table
+    theres=[table['fieldID'][int(idx)],table['fieldRA'][int(idx)],table['fieldDec'][int(idx)]]
+    table.remove_row(int(idx))
+    return table,theres
+
 inputdir='/sps/lsst/data/dev/pgris/Obs_minion_1016'
 
 prefix='Observations'
 
-fieldtypes=['WFD','GalacticPlane','SouthCelestialPole-18','NorthEclipticSpur-18c','DDF']
+#fieldtypes=['WFD','GalacticPlane','SouthCelestialPole-18','NorthEclipticSpur-18c','DDF']
+fieldtypes=['WFD']
 
 #fieldtypes=['WFD','GalacticPlane','SouthCelestialPole-18','DDF']
 
@@ -98,6 +113,114 @@ for typ in fieldtypes:
 
 tot_label=[]
 
+Draw_Projection=False
+Draw_Ra_Dec=False
+Draw_Visits=False
+Make_Square=True
+
+
+if Make_Square:
+
+    pos_tab= Table(names=('fieldID','fieldRA','fieldDec'), dtype=('i4', 'f8','f8'))
+
+    for key,num in thedict.items():
+        for keyb,val in num.items():
+            #print keyb,val['fieldRA'][0],val['fieldDec'][0]
+            pos_tab.add_row((keyb,val['fieldRA'][0],val['fieldDec'][0]))
+            
+    #print pos_tab
+    #print np.min(pos_tab['fieldRA'])
+
+   
+    ra_step=2. # degrees
+    n_dec_zone=5 # number of region in dec = number of fields to be merged
+
+
+    ra_min=np.min(pos_tab['fieldRA'])
+    
+    ra_dec_strip={}
+    istrip=-1
+    
+    while ra_min < 360.-ra_step:
+        istrip+=1
+        ra_dec_strip[istrip]={}
+        ra_max=ra_min+ra_step
+        sel=pos_tab[np.where(np.logical_and(np.rad2deg(pos_tab['fieldRA'])>=ra_min,np.rad2deg(pos_tab['fieldRA'])<ra_max))]
+        sel.sort('fieldDec')
+        num_per_part=len(sel)/n_dec_zone
+        ntag=0
+        for count in range(n_dec_zone):
+            if count == n_dec_zone-1:
+                ra_dec_strip[istrip][count]=sel[ntag:]
+            else:
+               ra_dec_strip[istrip][count]=sel[ntag:ntag+num_per_part] 
+            #print count, len(sel),num_per_part,len(ra_dec_strip[istrip][count])
+            ntag+=num_per_part
+
+        ra_min+=ra_step
+        break
+     
+    
+    
+    plt.plot(ra_dec_strip[0][0]['fieldRA'],ra_dec_strip[0][0]['fieldDec'],'bo')
+    plt.plot(ra_dec_strip[0][1]['fieldRA'],ra_dec_strip[0][1]['fieldDec'],'ro')
+    plt.plot(ra_dec_strip[0][2]['fieldRA'],ra_dec_strip[0][2]['fieldDec'],'go')
+    #plt.plot(ra_strip[istrip]['fieldRA'],ra_strip[istrip]['fieldDec'],'bo')
+
+
+    #now try to match dec pops
+    ra_dec_final_combi={}
+    all_combo=[]
+    for iv in range(len(ra_dec_strip)):
+        #print 'o yes',iv
+        ra_dec_final_combi[iv]={}
+        strip_copy={}
+        icombi=-1
+        for i in range(1,n_dec_zone):
+            strip_copy[i]=ra_dec_strip[iv][i].copy()
+        for val in ra_dec_strip[iv][0]:
+            icombi+=1
+            restable=Table(names=('fieldID','fieldRA','fieldDec'), dtype=('i4', 'f8','f8'))
+            restable.add_row((val))
+            for  iu in range(1,n_dec_zone):
+                strip_copy[iu],resu=Get_Nearest(strip_copy[iu],val)
+                restable.add_row((resu))
+            ra_dec_final_combi[iv][icombi]=restable
+
+    for key,vval in ra_dec_final_combi.items():
+        
+        for key,val in vval.items():
+            local=[]
+            for ik in range(len(val)):
+                local.append(val['fieldID'][ik])
+            all_combo.append(local)
+
+    print all_combo
+
+
+    #print 'alors final',len(ra_dec_final_combi),len(ra_dec_final_combi[0])
+    figc, axc = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
+    colors=['bo','ro','go','k*','b*','r*','g*','ks','bs','rs','gs','ks']
+    for iv in range(len(ra_dec_final_combi)):
+        for ii in range(len(ra_dec_final_combi[iv])):
+            axc.plot(np.rad2deg(ra_dec_final_combi[iv][ii]['fieldRA']),np.rad2deg(ra_dec_final_combi[iv][ii]['fieldDec']),colors[ii])
+    
+    axc.set_xlim(-1.,360.)
+    plt.show()
+    
+
+
+    """
+    dec_min=np.min(pos_tab['fieldDec'])
+    for i in range(n_dec_zone):
+        
+        dec_max=dec_min+dec_step
+        
+        
+        dec_min+=step
+    """
+    
+
 
 #ax = fig.add_subplot(111)
 
@@ -108,40 +231,38 @@ col['GalacticPlane']='k'
 col['SouthCelestialPole-18']='g'
 col['NorthEclipticSpur-18c']='y'
 
-fig = plt.figure(figsize=(8,6))
-ax = fig.add_subplot(111,projection="aitoff")
-
-for typ in fieldtypes:
+if Draw_Projection:
+    fig = plt.figure(figsize=(8,6))
+    ax = fig.add_subplot(111,projection="aitoff")
+    
+    for typ in fieldtypes:
     # As next step, those coordinates are transformed into an astropy.coordinates
     # astropy.coordinates.SkyCoord object.
-    c = SkyCoord(ra=np.rad2deg(fieldRA[typ]), dec=np.rad2deg(fieldDec[typ]),unit='degree', frame='icrs')
+        c = SkyCoord(ra=np.rad2deg(fieldRA[typ]), dec=np.rad2deg(fieldDec[typ]),unit='degree', frame='icrs')
 
-    ra_rad = c.ra.wrap_at(-1800 * u.deg).radian
+        ra_rad = c.ra.wrap_at(-1800 * u.deg).radian
     #ra_rad=c.ra.radian
-    dec_rad = c.dec.radian
+        dec_rad = c.dec.radian
 
-    """
-    ra = coord.Angle(fieldRA[typ],unit=u.radian)
-    ra = ra.wrap_at(180*u.degree)
-    dec = coord.Angle(fieldDec[typ],unit=u.radian)
-    """
-    thelabel=typ+' - '+str(round(100.*pourcent[typ],1))+'%'
-    tot_label.append(ax.scatter(ra_rad, dec_rad,color=col[typ],label=thelabel))
+
+        thelabel=typ+' - '+str(round(100.*pourcent[typ],1))+'%'
+        tot_label.append(ax.scatter(ra_rad, dec_rad,color=col[typ],label=thelabel))
     #ax.set_xlim(0., 360.)
-labs = [l.get_label() for l in tot_label]
-ax.legend(tot_label, labs, ncol=2,loc='lower right',prop={'size':5},frameon=False)
-ax.legend(bbox_to_anchor=(0.5, -0.1), loc=2, borderaxespad=0.,fontsize=10.)
-ax.grid(True)
+    labs = [l.get_label() for l in tot_label]
+    ax.legend(tot_label, labs, ncol=2,loc='lower right',prop={'size':5},frameon=False)
+    ax.legend(bbox_to_anchor=(0.5, -0.1), loc=2, borderaxespad=0.,fontsize=10.)
+    ax.grid(True)
 
-figc = plt.figure(figsize=(8,6))
-axc = figc.add_subplot(111)
-
-for typ in fieldtypes:
-    thelabel=typ
-    axc.scatter(np.rad2deg(fieldRA[typ]), np.rad2deg(fieldDec[typ]),color=col[typ],label=thelabel)
+if Draw_Ra_Dec:
+    figc = plt.figure(figsize=(8,6))
+    axc = figc.add_subplot(111)
+    
+    for typ in fieldtypes:
+        thelabel=typ
+        axc.scatter(np.rad2deg(fieldRA[typ]), np.rad2deg(fieldDec[typ]),color=col[typ],label=thelabel)
     #ax.set_xlim(360., 0.)
 
-axc.legend(loc=2, borderaxespad=0.,fontsize=10.)
+    axc.legend(loc=2, borderaxespad=0.,fontsize=10.)
 
 
 
@@ -157,50 +278,52 @@ for key,num in thedict.items():
     for keyb,val in num.items():
         axb.plot(val['expMJD'],val['airmass'],col[typ]+'.')
 """
-nvisits={}
-for typ in fieldtypes:
-    nvisits[typ]={}
-    for band in bands:
-        nvisits[typ][band]=[]
-        
-for key,num in thedict.items():
-    for keyb,val in num.items():
+
+if Draw_Visits:
+    nvisits={}
+    for typ in fieldtypes:
+        nvisits[typ]={}
         for band in bands:
-            sel=val[np.where(val['filter']==band)]
-            nvisits[key][band].append(len(sel))
+            nvisits[typ][band]=[]
+        
+    for key,num in thedict.items():
+        for keyb,val in num.items():
+            for band in bands:
+                sel=val[np.where(val['filter']==band)]
+                nvisits[key][band].append(len(sel))
 
-mean_visit={}
-rms_visit={}
-for typ in fieldtypes:
-    mean_visit[typ]=[]
-    rms_visit[typ]=[]
-    for band in bands:
-        print typ,band,np.mean(nvisits[typ][band]),np.std(nvisits[typ][band])
+    mean_visit={}
+    rms_visit={}
+    for typ in fieldtypes:
+        mean_visit[typ]=[]
+        rms_visit[typ]=[]
+        for band in bands:
+            print typ,band,np.mean(nvisits[typ][band]),np.std(nvisits[typ][band])
         #print nvisits[typ][band]
-        mean_visit[typ].append(np.mean(nvisits[typ][band]))
-        rms=np.std(nvisits[typ][band])
-        if rms < 0.001:
-            rms=0.001
-        rms_visit[typ].append(rms)
+            mean_visit[typ].append(np.mean(nvisits[typ][band]))
+            rms=np.std(nvisits[typ][band])
+            if rms < 0.001:
+                rms=0.001
+            rms_visit[typ].append(rms)
   
-myfmt={}
-myfmt['DDF']='--o'
-myfmt['WFD']='--s'
-myfmt['GalacticPlane']='--*'
-myfmt['SouthCelestialPole-18']='--+'
-myfmt['NorthEclipticSpur-18c']='--p'
-                             
-filters=[0,1,2,3,4,5]
-fige, axe = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
-for typ in fieldtypes:
-    axe.errorbar(filters,mean_visit[typ],yerr=rms_visit[typ],fmt=myfmt[typ],color =col[typ],label=typ)
+    myfmt={}
+    myfmt['DDF']='--o'
+    myfmt['WFD']='--s'
+    myfmt['GalacticPlane']='--*'
+    myfmt['SouthCelestialPole-18']='--+'
+    myfmt['NorthEclipticSpur-18c']='--p'
+    
+    filters=[0,1,2,3,4,5]
+    fige, axe = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
+    for typ in fieldtypes:
+        axe.errorbar(filters,mean_visit[typ],yerr=rms_visit[typ],fmt=myfmt[typ],color =col[typ],label=typ)
 
-fontsize=12
-axe.set_ylabel(r'<N$_{visit}$> (per field - 10 years)',{'fontsize': fontsize})
-axe.set_xlabel(r'Filter',{'fontsize': fontsize})
-axe.set_xlim(-0.5, 5.5)
-axe.set_ylim(10.,5000.)
-axe.set_yscale('log')
-axe.legend(loc='center left', fontsize=12.)
+    fontsize=12
+    axe.set_ylabel(r'<N$_{visit}$> (per field - 10 years)',{'fontsize': fontsize})
+    axe.set_xlabel(r'Filter',{'fontsize': fontsize})
+    axe.set_xlim(-0.5, 5.5)
+    axe.set_ylim(10.,5000.)
+    axe.set_yscale('log')
+    axe.legend(loc='center left', fontsize=12.)
 
 plt.show()

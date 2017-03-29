@@ -63,7 +63,21 @@ def Select_new(thedict,dict_combi,addit='',coadding=False,before_after=True):
     band_one='g'
     band_two='i'
 
-    selb=selb[np.where(np.logical_or(np.logical_and(selb['nmeas'+coadd+before+'_'+band_one+addit]>=dict_combi[band_one][0],selb['nmeas'+coadd+after+'_'+band_one+addit]>=dict_combi[band_one][1]),np.logical_and(selb['nmeas'+coadd+before+'_'+band_two+addit]>=dict_combi[band_two][0],selb['nmeas'+coadd+after+'_'+band_two+addit]>=dict_combi[band_two][1])))]
+    logical_test={}
+
+    selb=sela
+
+    for band in ['g','r','i','z']:
+        logical_test[band]=np.logical_and(selb['nmeas'+coadd+before+'_'+band+addit]>=dict_combi[band][0],selb['nmeas'+coadd+after+'_'+band+addit]>=dict_combi[band][1])
+
+    logical_and_g_r=np.logical_and(logical_test['g'],logical_test['r'])
+    logical_and_r_i=np.logical_and(logical_test['r'],logical_test['i'])
+    logical_and_i_z=np.logical_and(logical_test['i'],logical_test['z'])
+
+    selb=selb[np.where(np.logical_or(np.logical_or(logical_and_g_r,logical_and_r_i),logical_and_i_z))]
+    #selb=selb[np.where(np.logical_or(logical_and_g_r,logical_and_r_i))]
+
+             #selb=selb[np.where(np.logical_or(),np.logical_and(selb['nmeas'+coadd+before+'_'+band_two+addit]>=dict_combi[band_two][0],selb['nmeas'+coadd+after+'_'+band_two+addit]>=dict_combi[band_two][1])))]
 
     return selb
 
@@ -263,17 +277,18 @@ for i in range(imin,imax):
 
 Plot_eff_z=False
 Plot_eff_z_per_season=False
-Plot_eff_z_all=True
+Plot_eff_z_all=False
 Plot_noobs_z=False
 Plot_Deltas=False
 Plot_sim_vs_fit=False
-Plot_sim=True
+Plot_sim=False
 Plot_nmeas_vs_z=False
 Gime_Stats=False
 Loop_Combis=False
 Loop_Combis_new=False
 Draw_Chisquare=False
 Read_Fill=False
+Plot_Caract=True
 
 tab_resu=thedict[i]
 
@@ -290,6 +305,8 @@ combi_dict={}
 combi_dict['g']=(2,2)
 combi_dict['r']=(2,2)
 combi_dict['i']=(2,2)
+combi_dict['z']=(2,2)
+
 
 myfmt=['--','-.',':']
 mymarkers=['o','v','s']
@@ -1049,6 +1066,18 @@ if Read_Fill:
     outfile.close()
 
 
+if Plot_Caract:
+    
+    mytab=tab_resu[np.where(np.logical_and(tab_resu['status']=='try_fit',tab_resu['fit_status_coadd']=='ok'))]
 
+    print 'duration',np.max(mytab['t0_sim'])-np.min(mytab['t0_sim'])
+    fig, ax = plt.subplots(ncols=2, nrows=2, figsize=(10,9))
+    band='g'
+    ax[0][0].hist(mytab['nmeas_coadd_before_T0_'+band],bins=40)
+    ax[0][1].hist(mytab['nmeas_coadd_after_T0_'+band],bins=40)
+
+    ax[1][0].plot(mytab['t0_fit_coadd'],mytab['nmeas_coadd_before_T0_'+band],'bo')
+    ax[1][1].plot(mytab['t0_fit_coadd'],mytab['nmeas_coadd_after_T0_'+band],'bo')
+    
 
 plt.show()

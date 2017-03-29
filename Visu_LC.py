@@ -49,6 +49,23 @@ def Get_coadd(filtc):
 
     return out_table
 
+def Plot_bands(obj,time_name='expMJD',flux_name='flux',errflux_name='err_flux',filter_name='filter',addit=''):
+
+    figa, axa = plt.subplots(ncols=2, nrows=3, figsize=(10,9))
+
+    for j,band in enumerate(['u','g','r','i','z','y']):
+        if j<2:
+            k=0
+        if j>= 2 and j < 4:
+            k=1
+        if j>=4:
+            k=2
+        bandsel=addit+band
+        selobs=obj[np.where(obj[filter_name]==bandsel)]
+        #selobs=selobs[np.where(selobs[flux_name]/selobs[errflux_name]>5)]
+        #axa[k][j%2].errorbar(selobs[time_name]-selobs[time_name].min(),selobs[flux_name],yerr=selobs[errflux_name],fmt='.',ecolor='r')
+        axa[k][j%2].errorbar(selobs[time_name],selobs[flux_name],yerr=selobs[errflux_name],fmt='.',ecolor='r')
+
 parser = OptionParser()
 
 parser.add_option("-N", "--nevts", type="int", default=1000, help="filter [%default]")
@@ -108,9 +125,43 @@ for filtre in bands:
     band=sncosmo.Bandpass(transmission.lsst_system[filtre].wavelen, transmission.lsst_system[filtre].sb, name='LSST::'+filtre,wave_unit=u.nm)
     sncosmo.registry.register(band)
 
-Visu_LC=True
+Visu_LC=False
 Compare_Errors=False
 Get_m5=False
+Visu_Observations=True
+
+if Visu_Observations:
+
+
+    for oob in all_obs:
+        for i,obj in enumerate(oob):
+            print i,obj['status']
+            if obj['observations'] is not None:
+                print i,obj['observations']['flux']
+               
+                #Plot_bands(obj['observations'])
+
+                dict_fit=obj['fit']
+                if dict_fit is not None:
+                    dict_tag=dict_fit[val]
+                    print dict_tag['fit_status']
+
+                    filt=dict_tag['table_for_fit']
+                    filtb=filt[np.where(np.logical_and(filt['flux']/filt['fluxerr']>5.,filt['flux']>0.))]
+                    #Plot_bands(filtb,time_name='time',errflux_name='fluxerr',filter_name='band',addit='LSST::')
+                    sel_for_fit=filtb[np.where(filtb['band']=='LSST::g')]
+                                     
+                    sel_before=sel_for_fit[np.where(sel_for_fit['time']-dict_tag['sncosmo_fitted']['t0']<=0.)]
+                    sel_after=sel_for_fit[np.where(sel_for_fit['time']-dict_tag['sncosmo_fitted']['t0']>0.)]
+                    n_before=len(sel_before)
+                    n_after=len(sel_after)
+                    if n_before == 0:
+                        print 'T0',dict_tag['sncosmo_fitted']['t0'],sel_before,sel_after
+                        Plot_bands(obj['observations'])
+                        Plot_bands(filtb,time_name='time',errflux_name='fluxerr',filter_name='band',addit='LSST::')
+
+                        plt.show()
+                
 
 if Visu_LC:
     for oob in all_obs:
