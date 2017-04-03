@@ -271,6 +271,8 @@ opsim_release='minion_1016'
 imin=4
 imax=5
 
+print 'reading','Control_'+opsim_release+'/'+fichname
+
 for i in range(imin,imax):
     pkl_file = open('Control_'+opsim_release+'/'+fichname,'rb')
     thedict[i]=pkl.load(pkl_file)
@@ -293,7 +295,6 @@ Plot_Caract=True
 tab_resu=thedict[i]
 
 #print tab_resu.dtype
-
 
 fontsize=15.
 
@@ -1067,17 +1068,34 @@ if Read_Fill:
 
 
 if Plot_Caract:
-    
+
     mytab=tab_resu[np.where(np.logical_and(tab_resu['status']=='try_fit',tab_resu['fit_status_coadd']=='ok'))]
 
-    print 'duration',np.max(mytab['t0_sim'])-np.min(mytab['t0_sim'])
-    fig, ax = plt.subplots(ncols=2, nrows=2, figsize=(10,9))
-    band='g'
-    ax[0][0].hist(mytab['nmeas_coadd_before_T0_'+band],bins=40)
-    ax[0][1].hist(mytab['nmeas_coadd_after_T0_'+band],bins=40)
+    zmin=0.1
+    zmax=0.2
+    mytab=mytab[np.where(np.logical_and(mytab['z_sim']>=zmin,mytab['z_sim']<zmax))]
 
-    ax[1][0].plot(mytab['t0_fit_coadd'],mytab['nmeas_coadd_before_T0_'+band],'bo')
-    ax[1][1].plot(mytab['t0_fit_coadd'],mytab['nmeas_coadd_after_T0_'+band],'bo')
-    
+    print 'duration',np.max(mytab['t0_sim'])-np.min(mytab['t0_sim'])
+
+    fontsize=15.
+    for band in ['u','g','r','i','z','y']:
+        fig, ax = plt.subplots(ncols=2, nrows=2, figsize=(10,9))
+
+        ax[0][0].hist(mytab['nmeas_coadd_before_T0_'+band],bins=40) 
+        ax[0][0].set_xlabel(r'N$_{measurements}$ before T$_0$',{'fontsize': fontsize})
+        ax[0][0].set_ylabel(r'Number of Events',{'fontsize': fontsize})
+        ax[0][1].hist(mytab['nmeas_coadd_after_T0_'+band],bins=40)
+        ax[0][1].set_xlabel(r'N$_{measurements}$ after T$_0$',{'fontsize': fontsize})
+        ax[0][1].set_ylabel(r'Number of Events',{'fontsize': fontsize})
+
+        ax[1][0].plot(mytab['t0_sim']-np.min(mytab['t0_sim']),mytab['nmeas_coadd_before_T0_'+band],'bo')
+        ax[1][0].set_xlabel(r'$\Delta T_{0}$ = T$_{0}$-T$_{0}$$^{min}$',{'fontsize': fontsize})
+        ax[1][0].set_ylabel(r'N$_{measurements}$ before T$_0$',{'fontsize': fontsize})
+        ax[1][1].plot(np.max(mytab['t0_sim'])-mytab['t0_sim'],mytab['nmeas_coadd_after_T0_'+band],'bo')
+        #ax[1][1].set_xlabel(r'$\Delta T_{0}$ = T$_{0}$-T$_{0}^{min}$',{'fontsize': fontsize})
+        ax[1][1].set_xlabel(r'$\Delta T_{0}$ = T$_{0}$-T$_{0}$$^{min}$',{'fontsize': fontsize})
+        ax[1][1].set_ylabel(r'N$_{measurements}$ after T$_0$',{'fontsize': fontsize})
+        fig.suptitle('Field '+opts.fieldname+' - '+str(opts.fieldid)+' Filter '+band+' - '+str(zmin)+'< z <'+str(zmax)+' - Season '+str(opts.season))
+
 
 plt.show()

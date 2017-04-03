@@ -9,6 +9,66 @@ from lsst.sims.photUtils.EBV import EBVbase
 from optparse import OptionParser
 from astropy.table import vstack,Table
 
+def Get_Seasons(filtc):
+
+    """
+    names_ref=('time','flux','fluxerr','band','zp','zpsys')
+    dtype_ref=('f8', 'f8','f8','S7','f4','S4')
+
+    dtype_ref=[type[1] for type in filtc.dtype]
+    print 'hello',type(filtc),filtc.dtype.names,dtype_ref
+    """
+
+    dict_for_seasons={}
+    if len(filtc) > 0:
+        inum=0
+        print filtc.dtype,filtc.shape,type(filtc)
+        sorted_data=[]
+        for data in filtc:
+            if np.isscalar(data["expMJD"]):
+                sorted_data.append(data["expMJD"])
+            else:
+                sorted_data.append(data["expMJD"][0])
+        #sorted_data=sorted_data.sort(axis=1)
+        ind =np.argsort(sorted_data)
+        
+        #print ind
+        filtc=filtc[ind]
+        """
+        plt.plot(filtc['expMJD'],filtc['airmass'],'b.')
+        plt.show()
+        """
+        #dict_for_seasons[inum]=Table(names=filtc.dtype.names,dtype=filtc.dtype)
+        dict_for_seasons[inum]=np.zeros((60,1),dtype=filtc.dtype)
+        #print 'timediff',24.*60.*60.*(filtc['time']-filtc['time'][0])
+                                
+        iloop=0
+        iinside=0
+        dict_for_seasons[inum][iinside]=filtc[iloop]
+                                
+        if len(filtc) > 1:
+            while iloop < len(filtc)-1: 
+                iinside+=1
+                diff_time_days=filtc['expMJD'][iloop+1]-filtc['expMJD'][iloop]
+                #print 'alors ???',diff_time_sec,inum
+                if diff_time_days > 100.:
+                    dict_for_seasons[inum]=np.resize(dict_for_seasons[inum],iinside)
+                    inum+=1
+                    #dict_for_seasons[inum]=Table(names=filtc.dtype.names, dtype=filtc.dtype)
+                    dict_for_seasons[inum]=np.zeros((60,1),dtype=filtc.dtype)
+                    iinside=0
+                #dict_for_seasons[inum].add_row(filtc[iloop+1])
+                if len(dict_for_seasons[inum]) <= iinside:
+                    dict_for_seasons[inum]=np.resize(dict_for_seasons[inum],(len(dict_for_seasons[inum])+50,1))
+
+                dict_for_seasons[inum][iinside]=filtc[iloop+1]
+   
+                iloop+=1
+        #print 'thedict',dict_for_seasons
+                
+                
+    return dict_for_seasons
+
 def Get_coadd(filtc):
     #names_ref=('time','flux','fluxerr','band','zp','zpsys')
     dtype_ref=('f8', 'f8','f8','S7','f4','S4')
@@ -49,10 +109,10 @@ def Get_coadd(filtc):
 
     return out_table
 
-def Plot_bands(obj,time_name='expMJD',flux_name='flux',errflux_name='err_flux',filter_name='filter',addit=''):
+def Plot_bands(obj,time_name='expMJD',flux_name='flux',errflux_name='err_flux',filter_name='filter',addit='',opsim=None,T0=-1):
 
     figa, axa = plt.subplots(ncols=2, nrows=3, figsize=(10,9))
-
+    
     for j,band in enumerate(['u','g','r','i','z','y']):
         if j<2:
             k=0
@@ -62,9 +122,16 @@ def Plot_bands(obj,time_name='expMJD',flux_name='flux',errflux_name='err_flux',f
             k=2
         bandsel=addit+band
         selobs=obj[np.where(obj[filter_name]==bandsel)]
+        if bandsel=='g':
+            print selobs[flux_name],selobs[errflux_name]
         #selobs=selobs[np.where(selobs[flux_name]/selobs[errflux_name]>5)]
         #axa[k][j%2].errorbar(selobs[time_name]-selobs[time_name].min(),selobs[flux_name],yerr=selobs[errflux_name],fmt='.',ecolor='r')
-        axa[k][j%2].errorbar(selobs[time_name],selobs[flux_name],yerr=selobs[errflux_name],fmt='.',ecolor='r')
+        axa[k][j%2].errorbar(selobs[time_name],selobs[flux_name],yerr=selobs[errflux_name],fmt='.',ecolor='r',color='r')
+        axca = axa[k][j%2].twinx()
+        opsim_sel=opsim[np.where(opsim['filter']==band)]
+        axca.plot(opsim_sel['expMJD'],opsim_sel['fieldRA'],'b.') 
+        axa[k][j%2].set_xlim(T0-30,T0+50)
+       
 
 parser = OptionParser()
 
@@ -132,36 +199,88 @@ Visu_Observations=True
 
 if Visu_Observations:
 
+    #load Opsim obs so as to compare with the LC
+    opsim_dir='/sps/lsst/data/dev/pgris/Obs_minion_1016'
+    
+    prefix='Observations'
+    
+    List=[prefix+'_'+opts.fieldname+'_'+str(opts.fieldid)+'.pkl']
+    
+    thedict={}
 
+    for i,name in enumerate(List):
+        pkl_file = open(opsim_dir+'/'+name,'rb')
+        thedict[i]=pkl.load(pkl_file)
+
+    seasons=Get_Seasons(thedict[0]['dataSlice'])
+    thetab=Table(names=('T0','x1','c','z','nbefore_g','nafter_g'), dtype=('f8', 'f8','f8','f8','i4','i4'))
+
+    dict_obs={}
     for oob in all_obs:
         for i,obj in enumerate(oob):
-            print i,obj['status']
+            #print i,obj['status']
             if obj['observations'] is not None:
-                print i,obj['observations']['flux']
+                #print i,obj['observations']['flux']
                
                 #Plot_bands(obj['observations'])
 
                 dict_fit=obj['fit']
                 if dict_fit is not None:
                     dict_tag=dict_fit[val]
-                    print dict_tag['fit_status']
+                    #print dict_tag['fit_status']
 
                     filt=dict_tag['table_for_fit']
                     filtb=filt[np.where(np.logical_and(filt['flux']/filt['fluxerr']>5.,filt['flux']>0.))]
                     #Plot_bands(filtb,time_name='time',errflux_name='fluxerr',filter_name='band',addit='LSST::')
                     sel_for_fit=filtb[np.where(filtb['band']=='LSST::g')]
                                      
-                    sel_before=sel_for_fit[np.where(sel_for_fit['time']-dict_tag['sncosmo_fitted']['t0']<=0.)]
-                    sel_after=sel_for_fit[np.where(sel_for_fit['time']-dict_tag['sncosmo_fitted']['t0']>0.)]
+                    sel_before=sel_for_fit[np.where(sel_for_fit['time']-obj['t0']<=0.)]
+                    sel_after=sel_for_fit[np.where(sel_for_fit['time']-obj['t0']>0.)]
                     n_before=len(sel_before)
                     n_after=len(sel_after)
-                    if n_before == 0:
-                        print 'T0',dict_tag['sncosmo_fitted']['t0'],sel_before,sel_after
-                        Plot_bands(obj['observations'])
-                        Plot_bands(filtb,time_name='time',errflux_name='fluxerr',filter_name='band',addit='LSST::')
 
-                        plt.show()
-                
+                    thetab.add_row((obj['t0'],obj['x1'],obj['c'],obj['z'],n_before,n_after))
+                    dataSlice=seasons[opts.season]
+                    #print 'redshift',obj['z']
+                    if n_before == 1 and obj['t0']-np.min(dataSlice['expMJD'])>=20:
+                        timelow=obj['t0']-30.
+                        timehigh=obj['t0']+50.
+                       
+                        observations=dataSlice[np.where(np.logical_and(dataSlice['expMJD']>timelow,dataSlice['expMJD']<timehigh))]
+                        #print 'T0',obj['t0']
+                        Plot_This=False
+                        if Plot_This:
+                            Plot_bands(obj['observations'],opsim=seasons[opts.season],T0=obj['t0'])
+                            Plot_bands(filtb,time_name='time',errflux_name='fluxerr',filter_name='band',addit='LSST::',opsim=seasons[opts.season],T0=obj['t0'])
+                        #Plot_bands(filtb,time_name='time',errflux_name='fluxerr',filter_name='band',addit='LSST::',opsim=observations,T0=obj['t0'])
+                        #print obj['observations']
+                            plt.show()
+              
+
+    observations=seasons[opts.season]
+    sel_obs=observations[np.where(observations['filter']=='g')]
+    tmin=np.min(sel_obs['expMJD'])
+    fontsize=15.
+    figa, axa = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
+    sel=thetab
+    axa.plot(sel['T0']-tmin,sel['nbefore_g'],'bo')
+    axa.set_xlabel(r'$T_{0}-T_{obs}$$^{min}$',{'fontsize': fontsize})
+    axa.set_ylabel(r'N$_{measurements}$ before T$_0$',{'fontsize': fontsize})
+    #axa.set_ylim(0.5, 5.5)
+    axca=axa.twinx()
+    #what_obs='fiveSigmaDepth'
+    what_obs='c'
+    axca.plot(sel['T0']-tmin,sel[what_obs],'ro')
+    #axca.plot(sel_obs['expMJD']-tmin,sel_obs[what_obs],'ro')
+    axca.set_ylabel(r''+what_obs,{'fontsize': fontsize})
+    figa.suptitle('Field '+opts.fieldname+' - '+str(opts.fieldid)+' Filter '+'g'+' - '+str(opts.zmin)+'< z <'+str(opts.zmax)+' - Season '+str(opts.season))
+
+    """
+    figb, axb = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
+    sel=thetab[np.where(sel['nbefore_g']==1)]
+    axb.plot(sel['T0']-tmin,sel['x1'],'bo')
+    """
+    plt.show()
 
 if Visu_LC:
     for oob in all_obs:

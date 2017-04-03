@@ -11,7 +11,8 @@ from astropy.table import Table
 from optparse import OptionParser
 from Parameters import parameters
 #from mpl_toolkits.basemap import Basemap
-
+from matplotlib.colors import LogNorm
+from mpl_toolkits.mplot3d import Axes3D
 
 def Get_median_finSeeing(observations):
     
@@ -36,12 +37,77 @@ def Load_Fields(fieldname):
     filename='fieldIDs_minion_1016_'+fieldname+'.txt'
     sfile=open(filename, 'r')
 
+    inum=-1
     for line in sfile.readlines():
             #print 'hello line',line,line.count('NONIA:')
         if line.count('fieldIds') > 0:
+            inum+=1
             theres.append(int(line.split(' ')[1].strip()))
+            #if inum >= 100:
+                #break
 
     return theres
+
+def Get_Seasons(filtc):
+
+    """
+    names_ref=('time','flux','fluxerr','band','zp','zpsys')
+    dtype_ref=('f8', 'f8','f8','S7','f4','S4')
+
+    dtype_ref=[type[1] for type in filtc.dtype]
+    print 'hello',type(filtc),filtc.dtype.names,dtype_ref
+    """
+
+    dict_for_seasons={}
+    if len(filtc) > 0:
+        #print 'alors?',filtc.shape
+        inum=0
+        #print filtc.dtype,filtc.shape,type(filtc)
+        sorted_data=[]
+        for data in filtc:
+            if np.isscalar(data["expMJD"]):
+                sorted_data.append(data["expMJD"])
+            else:
+                sorted_data.append(data["expMJD"][0])
+        #sorted_data=sorted_data.sort(axis=1)
+        ind =np.argsort(sorted_data)
+        
+        #print ind
+        filtc=filtc[ind]
+        """
+        plt.plot(filtc['expMJD'],filtc['airmass'],'b.')
+        plt.show()
+        """
+        #dict_for_seasons[inum]=Table(names=filtc.dtype.names,dtype=filtc.dtype)
+        dict_for_seasons[inum]=np.zeros((60,1),dtype=filtc.dtype)
+        #print 'timediff',24.*60.*60.*(filtc['time']-filtc['time'][0])
+                                
+        iloop=0
+        iinside=0
+        dict_for_seasons[inum][iinside]=filtc[iloop]
+                                
+        if len(filtc) > 1:
+            while iloop < len(filtc)-1: 
+                iinside+=1
+                diff_time_days=filtc['expMJD'][iloop+1]-filtc['expMJD'][iloop]
+                #print 'alors ???',diff_time_sec,inum
+                if diff_time_days > 100.:
+                    dict_for_seasons[inum]=np.resize(dict_for_seasons[inum],iinside)
+                    inum+=1
+                    #dict_for_seasons[inum]=Table(names=filtc.dtype.names, dtype=filtc.dtype)
+                    dict_for_seasons[inum]=np.zeros((60,1),dtype=filtc.dtype)
+                    iinside=0
+                #dict_for_seasons[inum].add_row(filtc[iloop+1])
+                if len(dict_for_seasons[inum]) <= iinside:
+                    dict_for_seasons[inum]=np.resize(dict_for_seasons[inum],(len(dict_for_seasons[inum])+50,1))
+
+                dict_for_seasons[inum][iinside]=filtc[iloop+1]
+                #print 'shape',dict_for_seasons[inum][iinside].shape
+                iloop+=1
+        #print 'thedict',dict_for_seasons
+                
+                
+    return dict_for_seasons
 
 def Get_Nearest(orig_table, val):
    
@@ -56,6 +122,7 @@ def Get_Nearest(orig_table, val):
     return table,theres
 
 inputdir='/sps/lsst/data/dev/pgris/Obs_minion_1016'
+inputdirb='../Make_Cadence/Obs_minion_1016'
 
 prefix='Observations'
 
@@ -66,10 +133,12 @@ fieldtypes=['WFD']
 
 toprocess={}
 thedict={}
+thedictb={}
 
 for typ in fieldtypes:
     toprocess[typ]=Load_Fields(typ)
     thedict[typ]={}
+    thedictb[typ]={}
 
 for key,vals in toprocess.items():
     for val in vals:
@@ -79,6 +148,9 @@ for key,vals in toprocess.items():
         name=prefix+'_'+keyb+'_'+str(val)+'.pkl'
         pkl_file = open(inputdir+'/'+name,'rb')
         thedict[key][val]=pkl.load(pkl_file)['dataSlice']
+        
+        pkl_fileb = open(inputdirb+'/'+name,'rb')
+        thedictb[key][val]=pkl.load(pkl_fileb)['dataSlice']
 
 fieldRA={}
 fieldDec={}
@@ -116,8 +188,216 @@ tot_label=[]
 Draw_Projection=False
 Draw_Ra_Dec=False
 Draw_Visits=False
-Make_Square=True
+Make_Square=False
+Draw_Seasons=True
+Draw_Seasons_old=False
 
+if Draw_Seasons:
+    
+    seasons_dict={}
+    for key,num in thedict.items():
+        print 'Obs. Field',key
+        for keyb,val in num.items():
+            print 'Processing',keyb
+            seasons_dict[keyb]=Get_Seasons(val)
+
+    seasons_dictb={}
+    for key,num in thedictb.items():
+        print 'Obs. Field',key
+        for keyb,val in num.items():
+            print 'Processing',keyb
+            seasons_dictb[keyb]=Get_Seasons(val)
+
+    iseason=1
+     
+    RA='ditheredRA'
+    Dec='ditheredDec'
+
+    #RA='fieldRA'
+    #Dec='fieldDec'
+
+    
+    tab_orig= Table(names=('fieldID','ditheredRA','ditheredDec','fieldRA','fieldDec','Nvisit','season'), dtype=('i4','f8','f8','f8','f8','i4','i4'))
+    tab_reshuf= Table(names=('fieldID','ditheredRA','ditheredDec','fieldRA','fieldDec','Nvisit','season'), dtype=('i4','f8','f8','f8','f8','i4','i4'))
+
+    count_tot=[]
+    for key,val in seasons_dict.items():
+        for iseason, meas in val.items():  
+            tab_orig.add_row((key,meas['ditheredRA'][0],meas['ditheredDec'][0],meas['fieldRA'][0],meas['fieldDec'][0],len(meas),iseason))
+            count_tot.append(len(meas))
+
+    for key,val in seasons_dictb.items():
+        for iseason, meas in val.items():  
+            tab_reshuf.add_row((key,meas['ditheredRA'][0],meas['ditheredDec'][0],meas['fieldRA'][0],meas['fieldDec'][0],len(meas),iseason))
+            count_tot.append(len(meas))
+    """
+    figb,axb = plt.subplots(ncols=2, nrows=1, figsize=(10,9))
+    colors=['bo','ro','go','k*','b*','r*','g*','ks','bs','rs','gs','ks']
+
+
+    for iseason in range(0,10):
+        sela=tab_orig[np.where(tab_orig['season']==iseason)] 
+        selresh=tab_reshuf[np.where(tab_reshuf['season']==iseason)]
+            
+        sela=sela[np.where(np.logical_and(np.rad2deg(sela['fieldDec'])>-90.,np.rad2deg(sela['fieldDec'])<-40))]
+        selresh=selresh[np.where(np.logical_and(np.rad2deg(selresh['fieldDec'])>-90.,np.rad2deg(selresh['fieldDec'])<-40))]
+
+        axb[0].plot(sela['fieldID'],sela['Nvisit'],colors[iseason])
+        axb[1].plot(selresh['fieldID'],selresh['Nvisit'],colors[iseason])  
+       
+    """
+    RA='ditheredRA'
+    Dec='ditheredDec'
+
+    
+    min_col=10
+    max_col=300
+    
+    for iseason in range(0,10):
+        x_or=[]
+        y_or=[]
+        x_reshuf=[]
+        y_reshuf=[]
+        for val in tab_orig[np.where(tab_orig['season']==iseason)]:
+            for i in range(val['Nvisit']):
+                x_or.append(val[RA])
+                y_or.append(val[Dec])
+
+        for val in tab_reshuf[np.where(tab_reshuf['season']==iseason)]:
+            for i in range(val['Nvisit']):
+                x_reshuf.append(val[RA])
+                y_reshuf.append(val[Dec])
+
+        fontsize=12
+        figc,axc = plt.subplots(ncols=2, nrows=1, figsize=(10,9))
+
+        H0 = axc[0].hist2d(np.rad2deg(x_or), np.rad2deg(y_or), bins=(72,18),range=[[0.,360.],[np.rad2deg(np.min(y_or)),np.rad2deg(np.max(y_or))]],norm=LogNorm(),cmap=plt.cm.jet, vmin=min_col, vmax=max_col)
+        #figc.colorbar(H0[3], ax=axc[0]) 
+        axc[0].set_ylabel(r'$\delta$ [deg]',{'fontsize': fontsize})
+        axc[0].set_xlabel(r'$\alpha$ [deg]',{'fontsize': fontsize})
+        H = axc[1].hist2d(np.rad2deg(x_reshuf), np.rad2deg(y_reshuf), bins=(72,18),range=[[0.,360.],[np.rad2deg(np.min(y_or)),np.rad2deg(np.max(y_or))]],norm=LogNorm(),cmap=plt.cm.jet,vmin=min_col, vmax=max_col)
+        axc[1].set_ylabel(r'$\delta$ [deg]',{'fontsize': fontsize})
+        axc[1].set_xlabel(r'$\alpha$ [deg]',{'fontsize': fontsize})
+
+        cbar=figc.colorbar(H[3], ax=axc[1])   
+        cbar.set_ticks([min_col,max_col,50,100,150,200,250])
+        cbar.set_ticklabels([min_col,max_col,50,100,150,200,250])
+        figc.suptitle('Season '+str(iseason+1))
+        figc.savefig('Season'+str(iseason+1)+'.pdf', format='pdf')
+        
+if Draw_Seasons_old:
+    
+    seasons_dict={}
+    for key,num in thedict.items():
+        print 'Obs. Field',key
+        for keyb,val in num.items():
+            print 'Processing',keyb
+            seasons_dict[keyb]=Get_Seasons(val)
+
+    seasons_dictb={}
+    for key,num in thedictb.items():
+        print 'Obs. Field',key
+        for keyb,val in num.items():
+            print 'Processing',keyb
+            seasons_dictb[keyb]=Get_Seasons(val)
+
+    iseason=1
+     
+    RA='ditheredRA'
+    Dec='ditheredDec'
+
+    #RA='fieldRA'
+    #Dec='fieldDec'
+
+    count=[]
+    tab_orig= Table(names=('fieldID','fieldRA','fieldDec','Nvisit','season'), dtype=('i4','f8','f8','i4','i4'))
+    tab_reshuf= Table(names=('fieldID','fieldRA','fieldDec','Nvisit','season'), dtype=('i4','f8','f8','i4','i4'))
+
+
+
+    for iseason in range(0,10):
+        print 'iseason=',iseason
+        
+        io=-1
+        for key,val in seasons_dict.items():
+            io+=1        
+            if io == 0:
+                sel=val[iseason]
+                sel.reshape((len(sel),1))
+            else:
+                #print 'hello',iseason,len(val),len(val[iseason]),sel.shape,val[iseason].shape
+                
+                if iseason < len(val):
+                    print 'hello',iseason,len(val),len(val[iseason]),sel.shape,val[iseason].shape
+                    val[iseason].reshape((len(val[iseason]),1))
+                    sel=np.concatenate((sel,val[iseason]))
+                    sel.reshape((len(sel),1))
+                    print 'alors...',sel.shape
+
+
+            #axc[0].hist2d(np.rad2deg(sel[RA]), np.rad2deg(sel[Dec]), (360, 90), range=[[0.,360.],[-90.,0.]],cmap=plt.cm.jet)
+            #counts,xbins,ybins,image = plt.hist2d(np.rad2deg(sel[RA]), np.rad2deg(sel[Dec]),bins=10,norm=LogNorm(),cmap=plt.cm.hsv)
+            tab_orig.add_row((key,val[iseason]['fieldRA'][0],val[iseason]['fieldDec'][0],len(val[iseason]),iseason))
+            count.append(len(val[iseason]))
+            count.append(len(seasons_dictb[key][iseason]))
+            tab_reshuf.add_row((key,seasons_dictb[key][iseason]['fieldRA'][0],seasons_dictb[key][iseason]['fieldDec'][0],len(seasons_dictb[key][iseason]),iseason))
+
+            #axc[0].hist2d(np.rad2deg(sel[RA]), np.rad2deg(sel[Dec]),bins=(72,18),range=[[0.,360.],[-90.,0.]],norm=LogNorm(),cmap=plt.cm.hsv)
+            if io == 0:
+                selb=seasons_dictb[key][iseason]
+            else:
+                selb=np.concatenate((selb,seasons_dictb[key][iseason]))
+            #axc[1].hist2d(np.rad2deg(selb[RA]), np.rad2deg(selb[Dec]),bins=(72,18),range=[[0.,360.],[-90.,0.]],norm=LogNorm(),cmap=plt.cm.hsv)
+            #axc[0].contour(counts,extent=[xbins.min(),xbins.max(),ybins.min(),ybins.max()],linewidths=3)
+            #print 'hello',counts
+
+        figc,axc = plt.subplots(ncols=2, nrows=1, figsize=(10,9))
+
+        #axc.hist2d(np.rad2deg(selb[RA]), np.rad2deg(selb[Dec]),bins=(72,18),range=[[0.,360.],[-90.,0.]],norm=LogNorm(),cmap=plt.cm.hsv)
+        #counts,xbins,ybins,image = plt.hist2d(np.rad2deg(sel[RA]), np.rad2deg(sel[Dec]),bins=10,norm=LogNorm(),cmap=plt.cm.hsv)
+        #axc.contour(counts,extent=[xbins.min(),xbins.max(),ybins.min(),ybins.max()],linewidths=3)
+        H0 = axc[0].hist2d(np.rad2deg(sel[RA]), np.rad2deg(sel[Dec]), bins=(72,18),range=[[0.,360.],[-90.,0.]],norm=LogNorm(),cmap=plt.cm.jet, vmin=np.min(count)-1, vmax=np.max(count)+1)
+        #figc.colorbar(H0[3], ax=axc[0])
+        H = axc[1].hist2d(np.rad2deg(selb[RA]), np.rad2deg(selb[Dec]), bins=(72,18),range=[[0.,360.],[-90.,0.]],norm=LogNorm(),cmap=plt.cm.jet,vmin=np.min(count)-1, vmax=np.max(count)+1)
+        figc.colorbar(H[3], ax=axc[1])
+    
+        figb,axb = plt.subplots(ncols=2, nrows=1, figsize=(10,9))
+
+    colors=['bo','ro','go','k*','b*','r*','g*','ks','bs','rs','gs','ks']
+    for iseason in range(1,2):
+        sela=tab_orig[np.where(tab_orig['season']==iseason)] 
+        selresh=tab_reshuf[np.where(tab_reshuf['season']==iseason)]
+            
+        axb[0].plot(sela['fieldID'],sela['Nvisit'],colors[iseason])
+        axb[1].plot(selresh['fieldID'],selresh['Nvisit'],colors[iseason])
+
+
+        """
+            selb=seasons_dictb[key][iseason]
+            counts,ybins,xbins,image = plt.hist2d(np.rad2deg(selb[RA]), np.rad2deg(selb[Dec]),bins=1000,norm=LogNorm(),cmap=plt.cm.hsv)
+            axc[1].contour(counts,extent=[xbins.min(),xbins.max(),ybins.min(),ybins.max()],linewidths=3)
+            print 'Visits',key,len(sel),len(selb)
+        """
+    """
+    fig = plt.figure(figsize=(8,6))
+    ax = fig.add_subplot(111,projection="aitoff")
+    ax.grid(True)
+    for key,val in seasons_dict.items():
+        sel=val[iseason]
+        c = SkyCoord(ra=np.rad2deg(sel[RA]), dec=np.rad2deg(sel[Dec]),unit='degree', frame='icrs')
+        ra_rad = c.ra.wrap_at(180 * u.deg).radian
+        dec_rad = c.dec.radian
+        ax.scatter(ra_rad, dec_rad)
+
+        selb=seasons_dictb[key][iseason]
+        c = SkyCoord(ra=np.rad2deg(selb[RA]), dec=np.rad2deg(selb[Dec]),unit='degree', frame='icrs')
+        ra_rad = c.ra.wrap_at(180 * u.deg).radian
+        dec_rad = c.dec.radian
+        ax.scatter(ra_rad, dec_rad,color='r')
+    """
+
+    #plt.plot(pos_tab['expMJD_max'],pos_tab['season'],'ro')
+    #plt.show()
 
 if Make_Square:
 
@@ -170,7 +450,7 @@ if Make_Square:
 
     #now try to match dec pops
     ra_dec_final_combi={}
-    all_combo=[]
+    
     for iv in range(len(ra_dec_strip)):
         #print 'o yes',iv
         ra_dec_final_combi[iv]={}
@@ -187,6 +467,7 @@ if Make_Square:
                 restable.add_row((resu))
             ra_dec_final_combi[iv][icombi]=restable
 
+    all_combo=[]
     for key,vval in ra_dec_final_combi.items():
         
         for key,val in vval.items():

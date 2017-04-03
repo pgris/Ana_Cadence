@@ -300,8 +300,8 @@ Check_m5=False
 Make_Rolling=False
 Gime_Seasons=False
 Draw_Seasons=False
-Ana_Cadence=False
-Dump_in_File=True
+Ana_Cadence=True
+Dump_in_File=False
 
 
 if Draw_Molleid:
@@ -602,7 +602,6 @@ if Draw_Seasons:
 if Ana_Cadence:
 
     seasons=Get_Seasons(thedict[0]['dataSlice'])
-    
    
     dtypes=[('season_id',np.int),('night_id',np.int)]
     
@@ -682,7 +681,7 @@ if Ana_Cadence:
 
         Plot_this=False
 
-        if iseason==0:
+        if iseason==6:
             Plot_this=True
 
 
