@@ -22,7 +22,7 @@ class Throughputs:
         self.airmass=-1.
         self.aerosol=aerosol
         self.Load_System()
-        #self.Load_DarkSky()
+        self.Load_DarkSky()
         self.Load_Atmosphere()
         self.lsst_telescope={}
         self.Load_Telescope()

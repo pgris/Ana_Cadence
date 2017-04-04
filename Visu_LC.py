@@ -242,10 +242,19 @@ if Visu_Observations:
                     thetab.add_row((obj['t0'],obj['x1'],obj['c'],obj['z'],n_before,n_after))
                     dataSlice=seasons[opts.season]
                     #print 'redshift',obj['z']
+                    timelow=obj['t0']-30.
+                    timehigh=obj['t0']+50.
+
+                    if obj['t0'] > 0.9999999*61974.7537142 and obj['t0'] < 1.0000001*61974.7537142:
+                        #print obj
+                        
+                        theobservations=obj['observations'][np.where(np.logical_and(obj['observations']['expMJD']>timelow,obj['observations']['expMJD']<timehigh))]
+                        thefilt=theobservations[np.where(theobservations['filter']=='g')]
+                        print 'hello',len(thefilt),obj['t0'],obj['x1'],obj['c']
+                        print thefilt['expMJD'],thefilt['flux'],thefilt['flux']/thefilt['err_flux']
+                        
                     if n_before == 1 and obj['t0']-np.min(dataSlice['expMJD'])>=20:
-                        timelow=obj['t0']-30.
-                        timehigh=obj['t0']+50.
-                       
+                        
                         observations=dataSlice[np.where(np.logical_and(dataSlice['expMJD']>timelow,dataSlice['expMJD']<timehigh))]
                         #print 'T0',obj['t0']
                         Plot_This=False
@@ -262,18 +271,53 @@ if Visu_Observations:
     tmin=np.min(sel_obs['expMJD'])
     fontsize=15.
     figa, axa = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
-    sel=thetab
+    sel=thetab[np.where(thetab['nbefore_g']>=1)]
     axa.plot(sel['T0']-tmin,sel['nbefore_g'],'bo')
-    axa.set_xlabel(r'$T_{0}-T_{obs}$$^{min}$',{'fontsize': fontsize})
+    axa.set_xlabel(r'$T_{0}-T_{obs}$$^{min}$/$T-T_{obs}$$^{min}$',{'fontsize': fontsize})
     axa.set_ylabel(r'N$_{measurements}$ before T$_0$',{'fontsize': fontsize})
-    #axa.set_ylim(0.5, 5.5)
+    axa.set_ylim(0.5, 5.5)
     axca=axa.twinx()
     #what_obs='fiveSigmaDepth'
-    what_obs='c'
-    axca.plot(sel['T0']-tmin,sel[what_obs],'ro')
-    #axca.plot(sel_obs['expMJD']-tmin,sel_obs[what_obs],'ro')
+    what_obs='fieldRA'
+    #what_obs='c'
+    #axca.plot(sel['T0']-tmin,sel[what_obs],'ro')
+    axca.plot(sel_obs['expMJD']-tmin,sel_obs[what_obs],'ro')
+    print 'hh',sel_obs['expMJD']-tmin
     axca.set_ylabel(r''+what_obs,{'fontsize': fontsize})
+    axca.set_ylim(5.4, 6.5)
     figa.suptitle('Field '+opts.fieldname+' - '+str(opts.fieldid)+' Filter '+'g'+' - '+str(opts.zmin)+'< z <'+str(opts.zmax)+' - Season '+str(opts.season))
+
+    figb, axb = plt.subplots(ncols=3, nrows=2, figsize=(10,9))
+    selb=thetab[np.where(thetab['nbefore_g']==1)]
+    selb=thetab
+
+    #seld=selb[np.where(np.logical_and(selb['T0']-tmin >17,selb['T0']-tmin<26))]
+    seld=selb[np.where(np.logical_and(selb['T0']-tmin >44.5,selb['T0']-tmin<45.))]
+    print seld['T0'],seld['x1'],seld['c']
+
+
+    axb[0][0].plot(seld['x1'],seld['nbefore_g'],'bo')
+    axb[0][1].plot(seld['c'],seld['nbefore_g'],'bo')
+    axb[0][2].plot(seld['z'],seld['nbefore_g'],'bo')
+
+    selc=seld[np.where(seld['nbefore_g']==1)]
+    sele=seld[np.where(seld['nbefore_g']==2)]
+    
+    #print 'ee',selc['T0'],selc['x1'],selc['c'],selc['z']
+
+    #print selc.dtype
+
+    
+
+
+    axb[1][0].hist(selc['x1'],bins=15,histtype='step',fill=False,color='r')
+    axb[1][0].hist(sele['x1'],bins=15,histtype='step',fill=False,color='k')
+   
+    axb[1][1].hist(selc['c'],bins=15,histtype='step',fill=False,color='r')
+    axb[1][1].hist(sele['c'],bins=15,histtype='step',fill=False,color='k')
+    
+    axb[1][2].plot(selc['x1'],selc['c'],'ro')
+    axb[1][2].plot(sele['x1'],sele['c'],'ko')
 
     """
     figb, axb = plt.subplots(ncols=1, nrows=1, figsize=(10,9))

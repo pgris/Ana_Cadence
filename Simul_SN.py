@@ -57,14 +57,16 @@ for band in bands:
 Delay_Obs={'u':0,'g':1,'r':2,'i':3,'z':4,'y':5}
 
 T0=60000
+T0=61974.7537142
+T0=61999.1018211
 Tmin=T0-30
-Tmax=T0+80
+Tmax=T0+50
 
 #define a set of observations between T0-30 and T0+50
 
 List=['Observations_DD_290.pkl']
 thedict={}
-outdir='Obs_minion_1016'
+outdir='../Obs_minion_1016'
 
 for i,name in enumerate(List):
     pkl_file = open(outdir+'/'+name,'rb')
@@ -86,7 +88,7 @@ iobs=-1
 for Time_obs in np.arange(Tmin, Tmax, 3.):
     for band in bands:
         nchoice= int(np.random.uniform(0,len(obs_filt[band])))
-        print nchoice,obs_filt[band][nchoice]
+        #print nchoice,obs_filt[band][nchoice]
         iobs+=1 
         if len( myobservations) <= iobs:
             myobservations=np.resize(myobservations,(len(myobservations)+50,1))
@@ -97,126 +99,128 @@ for Time_obs in np.arange(Tmin, Tmax, 3.):
     #break
 
 myobservations=np.resize(myobservations,(iobs+1,1))
-print myobservations
 
-ra=myobservations['fieldRA'][0][0]
-dec=myobservations['fieldDec'][0][0]
+myobservations=thedict[0]['dataSlice']
 
-print 'hello',ra,dec
-redshift=0.01
-redshiftb=0.01
-c=0.0
-x1=0.0
+myobservations.sort(order='expMJD')
+print 'before',len(myobservations)
+myobservations=myobservations[np.where(np.logical_and(myobservations['expMJD']>=Tmin,myobservations['expMJD']<Tmax))]
+print 'after',len(myobservations),myobservations['expMJD']
+
+ra=myobservations['fieldRA'][0]
+dec=myobservations['fieldDec'][0]
+
+test=myobservations[np.where(myobservations['filter']=='g')]
+
+print 'hello',ra,dec,len(test)
+
+z=0.2135
 model='salt2-extended'
 version='1.0'
 
 sntype='Ia'
-SN=SN_Object(ra=np.rad2deg(ra),dec=np.rad2deg(dec),z=redshift,t0=T0,c=c,x1=x1,model=model,version=version,sn_type=sntype)
-SNb=SN_Object(ra=np.rad2deg(ra),dec=np.rad2deg(dec),z=redshiftb,t0=T0,c=c,x1=x1,model=model,version=version,sn_type='Ic')
+
+sn_dict={}
+
+
+sn_dict[0]={}
+
+sn_dict[0]['z']=z
+sn_dict[0]['c']=0.0107
+#sn_dict[0]['c']=-0.
+sn_dict[0]['x1']=-0.2051
+
+
+sn_dict[1]={}
+
+sn_dict[1]['z']=z
+sn_dict[1]['c']=0.
+sn_dict[1]['x1']=0.7826
+
+sn_dict[2]={}
+
+sn_dict[2]['z']=z
+sn_dict[2]['c']=0.
+sn_dict[2]['x1']=0.
+
+
+
+for i,val in sn_dict.items():
+    sn_dict[i]['SN']=SN_Object(ra=np.rad2deg(ra),dec=np.rad2deg(dec),z=val['z'],t0=T0,c=val['c'],x1=val['x1'],model=model,version=version,sn_type=sntype)
 
 table_for_fit={}
-table_for_fit_b={}
+table_mag={}
 
-table_for_fit['error_calc'] = Table(names=('time','flux','fluxerr','band','zp','zpsys'), dtype=('f8', 'f8','f8','S7','f4','S4'))
-table_for_fit_b['error_calc'] = Table(names=('time','flux','fluxerr','band','zp','zpsys'), dtype=('f8', 'f8','f8','S7','f4','S4'))
-
-table_mag= Table(names=('time','mag','band'), dtype=('f8', 'f8','S7'))
-table_magb= Table(names=('time','mag','band'), dtype=('f8', 'f8','S7'))
+for i in range(len(sn_dict)):
+    table_for_fit[i] = Table(names=('time','flux','fluxerr','band','zp','zpsys'), dtype=('f8', 'f8','f8','S7','f4','S4'))
+    table_mag[i]=Table(names=('time','mag','band'), dtype=('f8', 'f8','S7'))
 
 
-
-mycosmo=GeneralCosmo(0.2865,1.-0.2865,-1.,0.)
-ratio_cosmo=np.power(mycosmo.Dl(redshiftb)/mycosmo.Dl(redshift),2.)*(1.+redshiftb)/(1.+redshift)
-print 'lumidist',SN.lumidist,SNb.lumidist
-
-for band in bands:
-    observations_filtre=myobservations[np.where(myobservations['filter']==band)]
+for obs in myobservations:
     
-    for obs in observations_filtre:
-        time=obs['expMJD']
-        seeing=obs['rawSeeing']
-        m5_opsim=obs['fiveSigmaDepth']
+    time=obs['expMJD']
+    seeing=obs['rawSeeing']
+    m5_opsim=obs['fiveSigmaDepth']
+    band=obs['filter']
+    """
+    if band == 'g':
 
+        print 'here',time,seeing,m5_opsim,band
+
+    """
         #time=T0
-        sed_SN=SN.get_SED(time)
-        #timeb=(time-T0)*(1.+redshiftb)/(1.+redshift)+T0
-        sed_SNb=SNb.get_SED(time)
-        
-        transmission.Load_Atmosphere(obs['airmass'])
-        
-        flux_SN=sed_SN.calcFlux(bandpass=transmission.lsst_atmos_aerosol[band])
-        flux_SNb=sed_SNb.calcFlux(bandpass=transmission.lsst_atmos_aerosol[band])
-
        
-        """
-        flux_SN=sed_SN.calcFlux(bandpass=transmission.lsst_system[band]) / 3631.0 
-        flux_SNb=sed_SNb.calcFlux(bandpass=transmission.lsst_system[band]) / 3631.0 
-        """
-        #break
-        """
-        if band=='u' and (time-T0)/(1.+redshift) >=0.:
-            figa, axa = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
-            #plt.plot(sed_SNb.wavelen,sed_SNb.flambda,linestyle='-',color='r')
-            axa.plot(sed_SN.wavelen,sed_SN.flambda,linestyle='-',color='k')
-            axa.plot(sed_SNb.wavelen,sed_SNb.flambda,linestyle='-',color='r')
-            #axa.plot(sed_SNb.wavelen*(1.+redshift)/(1.+redshiftb),ratio_cosmo*sed_SNb.flambda,linestyle='-',color='g')
-            print 'hello',np.max(sed_SN.flambda),np.max(sed_SNb.flambda),np.max(sed_SN.flambda)/np.max(sed_SNb.flambda),time-T0,ratio_cosmo,(time-T0)/(1.+redshift),(timeb-T0)/(1.+redshiftb)
-            axa.set_xlabel(r'Wavelength [nm]',{'fontsize': 20.})
-            axa.set_ylabel(r'SED [erg/s/cm2]',{'fontsize': 20.})
-            plt.show()
-           
-         """
+        #timeb=(time-T0)*(1.+redshiftb)/(1.+redshift)+T0
+         
+    for i in range(len(sn_dict)):
+        sn_dict[i]['SED']=sn_dict[i]['SN'].get_SED(time)
         
-            
-            #plt.plot(sed_SNb.wavelen*(1.+redshift)/(1.+redshiftb),ratio_cosmo*sed_SNb.flambda,linestyle='-',color='g')
-           
-
-
-        Filter_Wavelength_Correction = np.power(500.0 / filterWave[band], 0.3)
-        Airmass_Correction = math.pow(obs['airmass'],0.6)
-        FWHM_Sys = FWHM_Sys_Zenith * Airmass_Correction
-        FWHM_Atm = seeing * Filter_Wavelength_Correction * Airmass_Correction
-        finSeeing = scaleToNeff * math.sqrt(np.power(FWHM_Sys,2) + atmNeffFactor * np.power(FWHM_Atm,2))
         
-        #print 'flux_SN',band,flux_SN
-        if flux_SN >0:
-                            
+    transmission.Load_Atmosphere(obs['airmass'])
+        
+    for i in range(len(sn_dict)):
+        sn_dict[i]['Flux']=sn_dict[i]['SED'].calcFlux(bandpass=transmission.lsst_atmos_aerosol[band])
+        
+    Filter_Wavelength_Correction = np.power(500.0 / filterWave[band], 0.3)
+    Airmass_Correction = math.pow(obs['airmass'],0.6)
+    FWHM_Sys = FWHM_Sys_Zenith * Airmass_Correction
+    FWHM_Atm = seeing * Filter_Wavelength_Correction * Airmass_Correction
+    finSeeing = scaleToNeff * math.sqrt(np.power(FWHM_Sys,2) + atmNeffFactor * np.power(FWHM_Atm,2))
+        
+    wavelen_min, wavelen_max, wavelen_step=transmission.lsst_system[band].getWavelenLimits(None,None,None)
+    flatSed = Sed()
+    flatSed.setFlatSED(wavelen_min, wavelen_max, wavelen_step)
+    flux0=np.power(10.,-0.4*obs['filtSkyBrightness'])
+    flatSed.multiplyFluxNorm(flux0)
+
+    for i in range(len(sn_dict)):
+        flux_SN=sn_dict[i]['Flux']
+        if flux_SN >= 0:
+            sed_SN=sn_dict[i]['SED']
+
             mag_SN=-2.5 * np.log10(flux_SN / 3631.0)
-            #mag_SN=-2.5 * np.log10(flux_SN )
-            
             
             FWHMeff = SignalToNoise.FWHMgeom2FWHMeff(finSeeing)
             photParams = PhotometricParameters()
             snr_SN= SignalToNoise.calcSNR_sed(sed_SN,transmission.lsst_atmos_aerosol[band], transmission.darksky, transmission.lsst_system[band], 
                                                       photParams, FWHMeff=FWHMeff, verbose=False)
-            m5_calc=SignalToNoise.calcM5(transmission.darksky,transmission.lsst_atmos_aerosol[band],transmission.lsst_system[band],photParams=photParams,FWHMeff=FWHMeff)
+                #m5_calc=SignalToNoise.calcM5(transmission.darksky,transmission.lsst_atmos_aerosol[band],transmission.lsst_system[band],photParams=photParams,FWHMeff=FWHMeff)
+            m5_calc=SignalToNoise.calcM5(flatSed,transmission.lsst_atmos_aerosol[band],transmission.lsst_system[band],photParams=photParams,FWHMeff=FWHMeff)
             snr_m5_through,gamma_through=SignalToNoise.calcSNR_m5(mag_SN,transmission.lsst_atmos_aerosol[band],m5_calc,photParams)
             snr_m5_opsim,gamma_opsim=SignalToNoise.calcSNR_m5(mag_SN,transmission.lsst_atmos_aerosol[band],m5_opsim,photParams)
 
-            err_flux_SN=flux_SN/snr_SN
+            err_flux_SN=flux_SN/snr_m5_through
            
-            table_for_fit['error_calc'].add_row((time,flux_SN,err_flux_SN,'LSST::'+band,25.,'ab'))
-            table_mag.add_row((time,mag_SN,'LSST::'+band))
+            table_for_fit[i].add_row((time-T0,flux_SN,err_flux_SN,'LSST::'+band,25.,'ab'))
+            table_mag[i].add_row((time-T0,mag_SN,'LSST::'+band))
 
-        if flux_SNb >0:
-                            
-            mag_SNb=-2.5 * np.log10(flux_SNb / 3631.0)
-            #mag_SNb=-2.5 * np.log10(flux_SNb)
-            
-            FWHMeff = SignalToNoise.FWHMgeom2FWHMeff(finSeeing)
-            photParams = PhotometricParameters()
-            snr_SNb= SignalToNoise.calcSNR_sed(sed_SNb,transmission.lsst_atmos_aerosol[band], transmission.darksky, transmission.lsst_system[band], 
-                                                      photParams, FWHMeff=FWHMeff, verbose=False)
-            m5_calc=SignalToNoise.calcM5(transmission.darksky,transmission.lsst_atmos_aerosol[band],transmission.lsst_system[band],photParams=photParams,FWHMeff=FWHMeff)
-            snr_m5_through,gamma_through=SignalToNoise.calcSNR_m5(mag_SNb,transmission.lsst_atmos_aerosol[band],m5_calc,photParams)
-            snr_m5_opsim,gamma_opsim=SignalToNoise.calcSNR_m5(mag_SNb,transmission.lsst_atmos_aerosol[band],m5_opsim,photParams)
+            if band == 'g':
+                print time,time-T0,flux_SN,snr_SN,snr_m5_through
+        else:
+            table_for_fit[i].add_row((time-T0,flux_SN,0.00000001,'LSST::'+band,25.,'ab'))  
+            if band == 'g':
+                print time,time-T0,flux_SN,-999.
 
-            err_flux_SNb=flux_SNb/snr_SNb
-            
-            table_for_fit_b['error_calc'].add_row((time,flux_SNb,err_flux_SNb,'LSST::'+band,25.,'ab')) 
-            table_magb.add_row((time,mag_SNb,'LSST::'+band))
-
-print 'resultat',table_for_fit['error_calc'],table_for_fit_b['error_calc']
 
 """
 #now do the fit...
@@ -243,6 +247,8 @@ print mbfit,mbfitb
 
 """
 
+colors=['k','r','b']
+
 figa, axa = plt.subplots(ncols=2, nrows=3, figsize=(10,9))
 
 for j,band in enumerate(['u','g','r','i','z','y']):
@@ -253,16 +259,11 @@ for j,band in enumerate(['u','g','r','i','z','y']):
     if j>=4:
         k=2
            
-      
-    sel=table_for_fit['error_calc'][np.where(table_for_fit['error_calc']['band']=='LSST::'+band)]
-    selb=table_for_fit_b['error_calc'][np.where(table_for_fit_b['error_calc']['band']=='LSST::'+band)] 
-   
-
-    print sel
-    axa[k][j%2].errorbar(sel['time'],sel['flux'],xerr=0.0000001, yerr=sel['fluxerr'],fmt='-',color = 'k')
-    axa[k][j%2].errorbar(selb['time'],selb['flux'],xerr=0.0000001, yerr=selb['fluxerr'],fmt='-',color = 'r')
-   
-
+    for ival in range(len(sn_dict)):  
+        sel=table_for_fit[ival][np.where(table_for_fit[ival]['band']=='LSST::'+band)]
+        axa[k][j%2].errorbar(sel['time'],sel['flux'],xerr=0.0000001, yerr=sel['fluxerr'],fmt='-',color = colors[ival])
+        
+  
 figb, axb = plt.subplots(ncols=2, nrows=3, figsize=(10,9))
 
 for j,band in enumerate(['u','g','r','i','z','y']):
@@ -273,18 +274,30 @@ for j,band in enumerate(['u','g','r','i','z','y']):
     if j>=4:
         k=2
            
-    """    
-    sel=table_for_fit['error_calc'][np.where(table_for_fit['error_calc']['band']=='LSST::'+band)]
-    selb=table_for_fit_b['error_calc'][np.where(table_for_fit_b['error_calc']['band']=='LSST::'+band)] 
-    """
-    sel=table_mag[np.where(table_mag['band']=='LSST::'+band)]
-    selb=table_magb[np.where(table_magb['band']=='LSST::'+band)] 
+    for ival in range(len(sn_dict)):  
+        sel=table_for_fit[ival][np.where(table_for_fit[ival]['band']=='LSST::'+band)]
+        axb[k][j%2].plot(sel['time'],sel['flux']/sel['fluxerr'],ls='-',color = colors[ival])
+ 
+"""
+figb, axb = plt.subplots(ncols=2, nrows=3, figsize=(10,9))
 
-    print sel
-    #axb[k][j%2].errorbar(sel['time'],sel['flux'],xerr=0.0000001, yerr=sel['fluxerr'],fmt='-',color = 'k')
-    #axb[k][j%2].errorbar(selb['time'],selb['flux'],xerr=0.0000001, yerr=selb['fluxerr'],fmt='-',color = 'r')
-    axb[k][j%2].plot(sel['time'],sel['mag'],'ko')
-    axb[k][j%2].plot(selb['time'],selb['mag'],'ro')
-    axb[k][j%2].set_ylim(axb[k][j%2].get_ylim()[::-1])
+for j,band in enumerate(['u','g','r','i','z','y']):
+    if j<2:
+        k=0
+    if j>= 2 and j < 4:
+        k=1
+    if j>=4:
+        k=2
+
+    for ival in range(len(sn_dict)):
+        sel=table_mag[ival][np.where(table_mag[ival]['band']=='LSST::'+band)]
+
+        print sel
+   
+        axb[k][j%2].plot(sel['time'],sel['mag'],colors[ival]+'o')
+        
+        axb[k][j%2].set_ylim(axb[k][j%2].get_ylim()[::-1])
+"""
+
 
 plt.show()

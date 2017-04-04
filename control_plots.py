@@ -279,7 +279,7 @@ for i in range(imin,imax):
 
 Plot_eff_z=False
 Plot_eff_z_per_season=False
-Plot_eff_z_all=False
+Plot_eff_z_all=True
 Plot_noobs_z=False
 Plot_Deltas=False
 Plot_sim_vs_fit=False
@@ -290,7 +290,7 @@ Loop_Combis=False
 Loop_Combis_new=False
 Draw_Chisquare=False
 Read_Fill=False
-Plot_Caract=True
+Plot_Caract=False
 
 tab_resu=thedict[i]
 
@@ -417,7 +417,7 @@ if Plot_eff_z_all:
             ll=r'$N_{points}^{LC}$ (opsim)='+str(comb[0])
         else:
             ll=r'$N_{points}^{LC}$ (opsim)=('+str(comb[0])+','+str(comb[1])+')'
-        ll=r'$N_{points}^{LC}$ (opsim) =(2,2) in (g,r) or (r,i)'
+        ll=r'$N_{points}^{LC}$ (opsim) =(2,2) in (g,r) or (r,i) or (i,z)'
         tot_label.append(axc.errorbar(bin_center,ratio, yerr=ratio_err,marker=mymarkers[i], mfc='b', mec='b', ms=5, linestyle=myfmt[i],color='k',label=ll))
         """
     for i in range(3,6):
