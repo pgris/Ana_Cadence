@@ -1,0 +1,9 @@
+svn co svn://lsstdev.ncsa.uiuc.edu/sims/throughputs/trunk/baseline
+
+source adapt
+
+The result is a pretty slow instrument, since  
+the filters cover the whole visible range and beyond. 
+I haven't cut those yet, although I am afraid it 
+will happen at some point.
+

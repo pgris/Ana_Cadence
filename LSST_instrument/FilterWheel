@@ -1,0 +1,8 @@
+u u filter_u.dat
+g g filter_g.dat
+r r filter_r.dat
+i i filter_i.dat
+z z filter_z.dat
+#y3 y3 filter_y3.dat
+y4 y4 filter_y4.dat
+#y y filter_y.dat

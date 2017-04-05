@@ -1,0 +1,40 @@
+# mirror size (cm^2) ((840/2)**2 - (512/2)**2)*3.1415927
+# both diameters found somewhere on the web. 
+@MIRROR_AREA 3.48289533092800004e+05
+
+# transmission of the optics
+@OPTICS_TRANS lens1.dat lens2.dat lens3.dat
+
+# reflectivity of the mirror(s)
+@MIRROR_REFLECTIVITY m1.dat m2.dat m3.dat
+
+# atmospheric transmission
+@ATMOSPHERIC_TRANS atmos.dat
+
+# filters
+@FILTERS FilterWheel
+
+# QE of CCD's
+@QE detector.dat
+
+# pixel size
+@PIX_SIZE 0.2
+
+# in electrons to be checked 
+@RO_NOISE 10
+
+# dark current in e-/pix/sec
+# don't know yet ?
+@DARK_CURRENT 0.003
+
+#
+@IQ_MODEL IQTABLE iq_table.dat
+
+# Why not, not checked that it makes sense.
+@PSF_MODEL MOFFAT45
+
+# actually MAUNAKEA_GREY is the lsst sky spectrum at the moment.
+@SKY_BACKGROUND MAUNAKEA_GREY
+
+
+

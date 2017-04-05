@@ -1,0 +1,11 @@
+# IQ FWHM table : from document 8857 v1.2 (I am not sure about the number...)
+# The document provides FWHM in table 2 and discusses the profile 
+# in section 4.4
+3500 0.77
+3659.37 0.77
+4803.99 0.73
+6223.56 0.70
+7541.29 0.67
+8681.3  0.65
+10050.3 0.63
+11000 0.63

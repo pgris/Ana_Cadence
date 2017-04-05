@@ -1,0 +1,19 @@
+#!/bin/bash
+
+for file in baseline/* ; do
+  fn=$(basename $file)
+  rm -f $fn
+  if [ -L $file ] ; then 
+    cp -a $file $fn
+    continue
+  fi
+
+  line=$(grep -i  'wavelength(nm)' $file)
+#  echo $fn $line
+  if [ x"$line" != "x" ] ; then 
+    echo @WAVELENGTH_IN_NM > $fn	
+    cat $file >> $fn
+    continue
+  fi
+  cp -a $file $fn
+done
