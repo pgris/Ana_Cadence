@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from lsst.sims.photUtils import Bandpass,Sed
 from Throughputs import Throughputs
 from lsst.sims.photUtils import PhotometricParameters
+from Parameters import parameters
+import math
 
 class Get_References:
     
@@ -23,21 +25,27 @@ class Get_References:
         self.paper['Tb']={'u': 0.0379 ,'g': 0.1493 ,'r':0.1386,'i':0.1198,'z':0.0838,'y':0.0413}
         self.paper['Sigmab']={'u': 0.0574 ,'g': 0.1735 ,'r':0.1502,'i':0.1272,'z':0.0872,'y':0.0469}
         self.paper['Seeing']={'u': 0.77 ,'g': 0.73 ,'r':0.70,'i':0.67,'z':0.65,'y':0.63}
+        self.paper['FWHMeff']={'u': 0.92 ,'g': 0.87 ,'r':0.83,'i':0.80,'z':0.78,'y':0.76}
         self.paper['Cb']={'u': 421.4,'g': 691.4 ,'r':952.9,'i':1152,'z':1373,'y':1511}
         self.paper['Skyb']={'u': 85.07,'g':467.9 ,'r':1085.2,'i':1800.3,'z':2775.7,'y':3613.4}
         self.paper['mb_Z']={'u': 27.09,'g':28.58 ,'r':28.50,'i':28.34,'z':27.95,'y':27.18}
         self.paper['counts_mb_Z']={'u': 1.0,'g':1.0 ,'r':1.0,'i':1.0,'z':1.0,'y':1.0}
-        self.paper['mb_stnd']={'u': 24.22,'g': 25.17 ,'r':24.74,'i':24.38,'z':23.80,'y':22.93}
+        self.paper['fiveSigmaDepth']={'u': 24.22,'g': 25.17 ,'r':24.74,'i':24.38,'z':23.80,'y':22.93}
+        self.SMTN_paper={}
+        self.SMTN_paper['fiveSigmaDepth']={'u': 23.60,'g': 24.83 ,'r':24.38,'i':23.92,'z':23.35,'y':22.44}
+        
 
-
+        self.params=parameters()
         transmission_git=Throughputs(aerosol=aerosol)
         transmission_lse40=Throughputs(through_dir='NEW_THROUGH',atmos_dir='NEW_THROUGH',aerosol=aerosol)
-        airmass=airmass
-        transmission_git.Load_Atmosphere(airmass)
-        transmission_lse40.Load_Atmosphere(airmass)
+        self.airmass=airmass
+        transmission_git.Load_Atmosphere(self.airmass)
+        transmission_lse40.Load_Atmosphere(self.airmass)
 
         self.throughput_git={}
         self.throughput_lse40={}
+        self.OpSim={}
+        self.OpSim['fiveSigmaDepth']={}
 
         for key in self.paper.keys():
             self.throughput_git[key]={}
@@ -51,6 +59,7 @@ class Get_References:
         self.Calc_Inputs(transmission_lse40,self.throughput_lse40)
         self.Calc_Sky(self.paper,self.throughput_lse40,transmission_lse40)
         self.Calc_Sky(self.paper,self.throughput_git,transmission_git)
+        self.Calc_m5_OpSim(self.throughput_git)
 
     def Calc_Inputs(self,transmission, tofill):
 
@@ -96,11 +105,30 @@ class Get_References:
             flatSedb.setFlatSED(wavelen_min, wavelen_max, wavelen_step)
             flux0b=np.power(10.,-0.4*infos['mbsky'][filtre])
             flatSedb.multiplyFluxNorm(flux0b)
-            #FWHMeff = SignalToNoise.FWHMgeom2FWHMeff(paper['Seeing'][filtre])
-            FWHMeff = paper['Seeing'][filtre]
+            FWHMeff = SignalToNoise.FWHMgeom2FWHMeff(paper['Seeing'][filtre])
+            #FWHMeff = paper['Seeing'][filtre]
             #m5_calc=SignalToNoise.calcM5(flatSedb,transmission.lsst_atmos[filtre],transmission.lsst_system[filtre],photParams=photParams,FWHMeff=FWHMeff)
-            m5_calc=SignalToNoise.calcM5(flatSedb,transmission.lsst_atmos[filtre],transmission.lsst_system[filtre],photParams=photParams,FWHMeff=FWHMeff)
-            infos['mb_stnd'][filtre]=m5_calc
+            m5_calc=SignalToNoise.calcM5(flatSedb,transmission.lsst_atmos[filtre],transmission.lsst_system[filtre],photParams=photParams,FWHMeff=self.paper['FWHMeff'][filtre])
+            infos['fiveSigmaDepth'][filtre]=m5_calc
+
+
+    def Calc_m5_OpSim(self,infos):
+         
+        visitExpTime=30.
+        for filtre in self.filters:
+            Filter_Wavelength_Correction = np.power(500.0 / self.params.filterWave[filtre], 0.3)
+            Airmass_Correction = math.pow(self.airmass,0.6)
+            FWHM_Sys = self.params.FWHM_Sys_Zenith * Airmass_Correction
+            FWHM_Atm = self.paper['Seeing'][filtre] * Filter_Wavelength_Correction * Airmass_Correction
+            FWHMeff = self.params.scaleToNeff * math.sqrt(np.power(FWHM_Sys,2) + self.params.atmNeffFactor * np.power(FWHM_Atm,2))
+            FWHMeff= self.paper['FWHMeff'][filtre]
+            Tscale = visitExpTime/ 30.0 * np.power(10.0, -0.4*(infos['mbsky'][filtre] - self.params.msky[filtre]))
+            dCm = self.params.dCm_infinity[filtre] - 1.25*np.log10(1 + np.power(10.,0.8*self.params.dCm_infinity[filtre]- 1.)/Tscale)
+        
+            m5_opsim=dCm+self.params.Cm[filtre]+0.5*(infos['mbsky'][filtre]-21.)+2.5*np.log10(0.7/FWHMeff)-self.params.kAtm[filtre]*(self.airmass-1.)+1.25*np.log10(visitExpTime/30.)
+            self.OpSim['fiveSigmaDepth'][filtre]=m5_opsim
+            print 'OpSim',filtre,FWHMeff,m5_opsim
+        
 
     def Calc_Integ(self,bandpass):
         resu=0.
@@ -115,14 +143,47 @@ class Get_References:
 
 resu=Get_References()
 
-round_nums={'mbsky':2,'Tb':4,'Sigmab':4,'Skyb':2,'mb_Z':2,'counts_mb_Z':1,'mb_stnd':2}
+round_nums={'mbsky':2,'Tb':4,'Sigmab':4,'Skyb':2,'mb_Z':2,'counts_mb_Z':1,'fiveSigmaDepth':2}
 
-for val in ['mbsky','Tb','Sigmab','Skyb','mb_Z','counts_mb_Z','mb_stnd']:
+filt=[]
+OpSim=[]
+Smtn=[]
+maf=[]
+my_xticks=[]
+
+todraw='fiveSigmaDepth'
+
+for val in ['mbsky','Tb','Sigmab','Skyb','mb_Z','counts_mb_Z','fiveSigmaDepth']:
     print val
-    for filtre in ['u','g','r','i','z','y']:
+    for i,filtre in enumerate(['u','g','r','i','z','y']):
         diffa=resu.paper[val][filtre]-resu.throughput_lse40[val][filtre]
         diffb=resu.paper[val][filtre]-resu.throughput_git[val][filtre]
         print np.round(resu.paper[val][filtre],round_nums[val]),np.round(resu.throughput_lse40[val][filtre],round_nums[val]),np.round(diffa,round_nums[val]),np.round(resu.throughput_git[val][filtre],round_nums[val]),np.round(diffb,round_nums[val])
+        if val == todraw:
+            filt.append(i)
+            OpSim.append(resu.OpSim[todraw][filtre])
+            if filtre !='y':
+                my_xticks.append(filtre)
+            else:
+                my_xticks.append(filtre+'4')
+            Smtn.append(resu.SMTN_paper[todraw][filtre])
+            maf.append(resu.throughput_git[todraw][filtre])
+#figc, axc = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
+
+tot_label=[]
+fig = plt.figure()
+plt.xticks(filt, my_xticks)
+plt.plot(filt,maf,'--r^',label='MAF')
+plt.plot(filt,Smtn,'-.ks',label='SMTN-002')
+plt.plot(filt,OpSim,'-bo',label='OpSim recalc')
+plt.xlabel("$\lambda$")
+plt.ylabel("mag lim (5$\sigma$)")
+fig.suptitle('mag lim $T_{exp}$ = 30.0')
+plt.xlim([-0.1,5.1])
+plt.ylim(ymax=25.5)
+plt.legend(loc='upper right')
+plt.show()
+
 
 """
 filtre='r'

@@ -35,3 +35,5 @@ setup -k -r ${dir_tag}/sqlalchemy
 setup -k -r ${dir_tag}/sims_catalogs
 setup -k -r ${dir_tag}/sims_maf
 #setup -k -r ../sims_operations
+
+export NEW_THROUGH=LSST_instrument/

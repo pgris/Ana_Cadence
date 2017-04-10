@@ -30,7 +30,7 @@ class parameters:
                      'i': 20.47,
                      'z': 19.60,
                      'y': 18.63} 
-        
+        """
         self.Cm = {'u':22.94,
                    'g':24.46,
                    'r':24.48,
@@ -38,14 +38,31 @@ class parameters:
                    'z':24.18,
                    'y':23.73}
         
+        
         self.dCm_infinity = {'u':0.56,
                              'g':0.12,
                              'r':0.06,
                              'i':0.05,
                              'z':0.03,
                              'y':0.02}
+        """
+        
+        self.Cm = {'u':22.91,
+                   'g':24.45,
+                   'r':24.46,
+                   'i':24.33,
+                   'z':24.17,
+                   'y':23.71}
         
         
+        self.dCm_infinity = {'u':0.57,
+                             'g':0.12,
+                             'r':0.06,
+                             'i':0.05,
+                             'z':0.03,
+                             'y':0.02}
+
+
        #FWHM_500 = seeing at 500 nm
        # FWHM_Sys_Zenith = sqrt(telSeeing**2 + opticalDesSeeing**2 + cameraSeeing**2)
        # Filter_Wavelength_Correction = (500 nm / Filter_Effective_Wavelength)**0.3
