@@ -73,6 +73,36 @@ def Get_coadd(filt):
 
     return dict_for_coadd
 
+def Get_Obs_per_day(season):
+ 
+    Tmin=np.min(season['expMJD'])
+    Tmax=np.max(season['expMJD'])
+
+    days_obs={}
+    days_no_obs={}
+    bands=['u','g','r','i','z','y']
+
+    for band in bands:
+        days_no_obs[band]=[]
+
+    season.sort(order='expMJD')
+
+    for time in np.arange(Tmin,Tmax,1.):
+        sel_obs=season[np.where(np.logical_and(season['expMJD']>=time,season['expMJD']<time+1.))]
+        
+        if len(sel_obs) > 0:
+            days_obs[time-Tmin]=sel_obs
+            mean_time=np.mean(sel_obs['expMJD'])
+
+            for j,band in enumerate(bands):
+                selb=sel_obs[np.where(sel_obs['filter']==band)]
+                if len(selb)==0:
+                    days_no_obs[band].append((time-Tmin,mean_time))
+            
+    
+    return days_obs, days_no_obs
+
+
 def Copy_Season(season,shift=0.,frac=1.):
     
     season.sort(order='expMJD')
@@ -117,8 +147,48 @@ def Copy_Season(season,shift=0.,frac=1.):
     #print 'final result',len(season_copy),len(season_remain)
     return season_copy,season_remain
 
+def Get_Seasons(filtb):
+ 
+    #Get the seasons of a given set of obs
+    #A season is defined by a set of observations 
+    # for which the consecutive difference in time is lower than 100 days
+    #input : fitc = set of observations
+    #output: dict of seasons; key = seson number (starting at 0), val = corresponding set of observations
+    
+    dict_for_seasons={}
+    filtc=filtb.copy()
 
-def Get_Seasons(filtc):
+    filtc.sort(order='expMJD')
+        
+
+    if len(filtc) > 0:
+        inum=0
+        dict_for_seasons[inum]=np.zeros((0,1),dtype=filtc.dtype)
+           
+                                
+        iloop=0
+        iinside=0
+        dict_for_seasons[inum]=np.vstack([dict_for_seasons[inum],filtc[iloop]])
+            
+        if len(filtc) > 1:
+            while iloop < len(filtc)-1: 
+                iinside+=1
+                diff_time_days=filtc['expMJD'][iloop+1]-filtc['expMJD'][iloop]
+                if diff_time_days > 100.:
+                       
+                    inum+=1
+                    dict_for_seasons[inum]=np.zeros((0,1),dtype=filtc.dtype)
+                       
+
+                dict_for_seasons[inum]=np.vstack([dict_for_seasons[inum],filtc[iloop+1]])
+   
+                iloop+=1
+                
+        
+        return dict_for_seasons
+
+
+def Get_Seasons_old(filtc):
 
     """
     names_ref=('time','flux','fluxerr','band','zp','zpsys')
@@ -229,7 +299,8 @@ parser.add_option("-n", "--nmergers", type="int", default=3, help="filter [%defa
 parser.add_option("-p", "--merge_factor", type="int", default=80, help="merge factor (%) [%default]")
 
 opts, args = parser.parse_args()
-outdir='/sps/lsst/data/dev/pgris/Obs_minion_1016'
+#outdir='/sps/lsst/data/dev/pgris/Obs_minion_1016'
+outdir='/sps/lsst/data/dev/pgris/Make_Cadence/Obs_minion_1016'
 addit=''
 
 prefix='Observations'
@@ -238,9 +309,11 @@ if opts.rolling:
     addit='_'+str(opts.nmergers)+'_'+str(opts.merge_factor)
 
 List=[prefix+'_'+opts.fieldname+'_'+str(opts.fieldid)+addit+'.pkl']
+
 bands=['u','g','r','i','z','y']
 
 thedict={}
+
 fieldid={}
 for i,name in enumerate(List):
     pkl_file = open(outdir+'/'+name,'rb')
@@ -301,6 +374,7 @@ Make_Rolling=False
 Gime_Seasons=False
 Draw_Seasons=False
 Ana_Cadence=True
+Ana_Season=False
 Dump_in_File=False
 
 
@@ -599,10 +673,120 @@ if Draw_Seasons:
     axa.set_xlabel(r'expMJD',{'fontsize': 20.})
     axa.set_ylabel(r'Airmass',{'fontsize': 20.})
 
+if Ana_Season:
+
+    def Get_Table(sel_season):
+
+        Tmin=np.min(sel_season['expMJD'])
+        Tmax=np.max(sel_season['expMJD'])
+
+        table_meas = Table(names=('day','n_u','n_g','n_r','n_i','n_z','n_y'), dtype=('i4','i4','i4','i4','i4','i4','i4'))
+        ntot_obs={}
+        for time in np.arange(Tmin,Tmax,1.):
+            val={}
+            nmeas=0
+            for j,band in enumerate(['u','g','r','i','z','y']):
+                selb=sel_season[np.where(sel_season['filter']==band)]
+                ntot_obs[band]=len(selb)
+                selb.sort(order='expMJD')
+                selc=selb[np.where(np.logical_and(selb['expMJD']>=time,selb['expMJD']<time+1.))]
+                val[band]=len(selc)
+                nmeas+=len(selc)
+            if nmeas > 0:
+                table_meas.add_row((time-Tmin,val['u'],val['g'],val['r'],val['i'],val['z'],val['y']))
+
+        return table_meas, ntot_obs
+
+    #outdir=['/sps/lsst/data/dev/pgris/Make_Cadence/Obs_minion_1016_orig','/sps/lsst/data/dev/pgris/Make_Cadence/Obs_minion_1016_noresh','/sps/lsst/data/dev/pgris/Make_Cadence/Obs_minion_1016']
+    outdir=['/sps/lsst/data/dev/pgris/Make_Cadence/Obs_minion_1016_orig','/sps/lsst/data/dev/pgris/Make_Cadence/Obs_minion_1016']
+
+    prefix='Observations'
+    fichname=prefix+'_'+opts.fieldname+'_'+str(opts.fieldid)+'.pkl'
+    
+    thedict={}
+    seasons={}
+    table_meas={}
+    ntot_obs={}
+    bands=['u','g','r','i','z','y']
+
+    num_season=1
+    for i,val in enumerate(outdir):
+        thedict[i]=pkl.load(open(val+'/'+fichname,'rb'))
+        seasons[i]=Get_Seasons(thedict[i]['dataSlice'])
+
+    for key,val in seasons.items():
+        sel_season=val[num_season]
+        selb=sel_season[np.where(sel_season['filter']=='r')]
+        print 'hello',key,len(selb)
+        table_meas[key],ntot_obs[key]=Get_Table(sel_season)
+            
+    for band in bands:
+        for key,val in ntot_obs.items():
+            for keyb,valb in val.items():
+                if keyb == band:
+                    print keyb,valb
+      
+    figa, axa = plt.subplots(ncols=1, nrows=1, figsize=(10,9))  
+    axa.plot(thedict[0]['dataSlice']['expMJD'],thedict[0]['dataSlice']['airmass'],'bo')
+    axa.plot(thedict[1]['dataSlice']['expMJD'],thedict[1]['dataSlice']['airmass'],'r*')
+    
+    test={}
+    for i in range(2):
+        test[i]=thedict[i]['dataSlice'][(np.where(np.logical_and(thedict[i]['dataSlice']['expMJD']>=59950,thedict[i]['dataSlice']['expMJD']<60250)))]
+    
+
+    print 'alors',len(test[0]),len(test[1]),len(thedict[0]['dataSlice']),len(thedict[1]['dataSlice'])
+
+   
+
+
+    """
+    figa, axa = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
+    filtercolors = {'u':'b', 'g':'c', 'r':'g', 'i':'y', 'z':'r', 'y':'m'}
+
+    for band in ['u','g','r','i','z','y']:
+        axa.plot(table_meas['day'],table_meas['n_'+band],filtercolors[band]+'o',label=band)
+
+    axa.legend(loc='upper right')
+    axa.set_xlabel(r'Time',{'fontsize': 20.})
+    axa.set_ylabel(r'$N_{Obs}$',{'fontsize': 20.})
+    axa.set_ylim(-0.5, 4.5)
+
+    stat={}
+    for band in ['u','g','r','i','z','y']:
+        stat[band]={}
+        for nobs in range(0,5):
+            sel=table_meas[np.where(table_meas['n_'+band]==nobs)]
+            stat[band][nobs]=len(sel)
+            print band,nobs,len(sel),ntot_obs[band]
+    """    
+   
+
+    sel_season=seasons[0][1]
+    figb, axb = plt.subplots(ncols=2, nrows=3, figsize=(10,9))
+
+    for j,band in enumerate(['u','g','r','i','z','y']):
+        if j<2:
+            k=0
+        if j>= 2 and j < 4:
+            k=1
+        if j>=4:
+            k=2
+
+        selb=sel_season[np.where(sel_season['filter']==band)]
+        selb.sort(order='expMJD')
+        diffs=[jo-io for io, jo in zip(selb['expMJD'][:-1], selb['expMJD'][1:])]
+        #axb[k][j%2].plot(selb['expMJD'],selb['airmass'],'bo')
+        print 'hello',k,j%2,band,diffs
+        axb[k][j%2].hist(diffs,bins=80)
+ 
+    plt.show()
+
 if Ana_Cadence:
 
     seasons=Get_Seasons(thedict[0]['dataSlice'])
-   
+    
+
     dtypes=[('season_id',np.int),('night_id',np.int)]
     
     for band in bands:
