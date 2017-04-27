@@ -146,7 +146,7 @@ parser.add_option("-Z", "--zmax", type="float", default=0.8, help="filter [%defa
 
 opts, args = parser.parse_args()
 
-file='SuperNova_'+opts.sntype+'_'+opts.fieldname+'_'+str(opts.fieldid)+'_'+str(opts.zmin)+'_'+str(opts.zmax)+'_'+str(opts.nevts)+'_season_'+str(opts.season)+'_0.pkl'
+file='SuperNova_'+opts.sntype+'_'+opts.fieldname+'_'+str(opts.fieldid)+'_'+str(opts.zmin)+'_'+str(opts.zmax)+'_'+str(opts.nevts)+'_season_'+str(opts.season)+'_3.pkl'
 
 #file='SuperNova_'+sntype+'_WFD_309_'+str(zmin)+'_'+str(zmax)+'_salt2-extended_10_11.pkl'
 opsim_release='minion_1016'
@@ -200,7 +200,7 @@ Visu_Observations=True
 if Visu_Observations:
 
     #load Opsim obs so as to compare with the LC
-    opsim_dir='/sps/lsst/data/dev/pgris/Obs_minion_1016'
+    opsim_dir='/sps/lsst/data/dev/pgris/Make_Cadence/Obs_minion_1016'
     
     prefix='Observations'
     
@@ -215,6 +215,7 @@ if Visu_Observations:
     seasons=Get_Seasons(thedict[0]['dataSlice'])
     thetab=Table(names=('T0','x1','c','z','nbefore_g','nafter_g'), dtype=('f8', 'f8','f8','f8','i4','i4'))
 
+    thefiltre='z'
     dict_obs={}
     for oob in all_obs:
         for i,obj in enumerate(oob):
@@ -232,7 +233,7 @@ if Visu_Observations:
                     filt=dict_tag['table_for_fit']
                     filtb=filt[np.where(np.logical_and(filt['flux']/filt['fluxerr']>5.,filt['flux']>0.))]
                     #Plot_bands(filtb,time_name='time',errflux_name='fluxerr',filter_name='band',addit='LSST::')
-                    sel_for_fit=filtb[np.where(filtb['band']=='LSST::g')]
+                    sel_for_fit=filtb[np.where(filtb['band']=='LSST::'+thefiltre)]
                                      
                     sel_before=sel_for_fit[np.where(sel_for_fit['time']-obj['t0']<=0.)]
                     sel_after=sel_for_fit[np.where(sel_for_fit['time']-obj['t0']>0.)]
@@ -249,7 +250,7 @@ if Visu_Observations:
                         #print obj
                         
                         theobservations=obj['observations'][np.where(np.logical_and(obj['observations']['expMJD']>timelow,obj['observations']['expMJD']<timehigh))]
-                        thefilt=theobservations[np.where(theobservations['filter']=='g')]
+                        thefilt=theobservations[np.where(theobservations['filter']==thefiltre)]
                         print 'hello',len(thefilt),obj['t0'],obj['x1'],obj['c']
                         print thefilt['expMJD'],thefilt['flux'],thefilt['flux']/thefilt['err_flux']
                         
@@ -284,7 +285,7 @@ if Visu_Observations:
     axca.plot(sel_obs['expMJD']-tmin,sel_obs[what_obs],'ro')
     print 'hh',sel_obs['expMJD']-tmin
     axca.set_ylabel(r''+what_obs,{'fontsize': fontsize})
-    axca.set_ylim(5.4, 6.5)
+    #axca.set_ylim(5.4, 6.5)
     figa.suptitle('Field '+opts.fieldname+' - '+str(opts.fieldid)+' Filter '+'g'+' - '+str(opts.zmin)+'< z <'+str(opts.zmax)+' - Season '+str(opts.season))
 
     figb, axb = plt.subplots(ncols=3, nrows=2, figsize=(10,9))

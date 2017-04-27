@@ -67,14 +67,16 @@ def Select_new(thedict,dict_combi,addit='',coadding=False,before_after=True):
 
     selb=sela
 
-    for band in ['g','r','i','z']:
+    print 'hhhh',dict_combi.keys()
+    for band in ['g','r','i','z','y']:
         logical_test[band]=np.logical_and(selb['nmeas'+coadd+before+'_'+band+addit]>=dict_combi[band][0],selb['nmeas'+coadd+after+'_'+band+addit]>=dict_combi[band][1])
 
     logical_and_g_r=np.logical_and(logical_test['g'],logical_test['r'])
     logical_and_r_i=np.logical_and(logical_test['r'],logical_test['i'])
     logical_and_i_z=np.logical_and(logical_test['i'],logical_test['z'])
+    logical_and_z_y=np.logical_and(logical_test['z'],logical_test['y'])
 
-    selb=selb[np.where(np.logical_or(np.logical_or(logical_and_g_r,logical_and_r_i),logical_and_i_z))]
+    selb=selb[np.where(np.logical_or(np.logical_or(np.logical_or(logical_and_g_r,logical_and_r_i),logical_and_i_z),logical_and_z_y))]
     #selb=selb[np.where(np.logical_or(logical_and_g_r,logical_and_r_i))]
 
              #selb=selb[np.where(np.logical_or(),np.logical_and(selb['nmeas'+coadd+before+'_'+band_two+addit]>=dict_combi[band_two][0],selb['nmeas'+coadd+after+'_'+band_two+addit]>=dict_combi[band_two][1])))]
@@ -307,7 +309,7 @@ combi_dict['g']=(2,2)
 combi_dict['r']=(2,2)
 combi_dict['i']=(2,2)
 combi_dict['z']=(2,2)
-
+combi_dict['y']=(2,2)
 
 myfmt=['--','-.',':']
 mymarkers=['o','v','s']

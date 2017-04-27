@@ -373,9 +373,9 @@ Check_m5=False
 Make_Rolling=False
 Gime_Seasons=False
 Draw_Seasons=False
-Ana_Cadence=True
+Ana_Cadence=False
 Ana_Season=False
-Dump_in_File=False
+Dump_in_File=True
 
 
 if Draw_Molleid:
@@ -762,7 +762,7 @@ if Ana_Season:
     """    
    
 
-    sel_season=seasons[0][1]
+    sel_season=seasons[1][1]
     figb, axb = plt.subplots(ncols=2, nrows=3, figsize=(10,9))
 
     for j,band in enumerate(['u','g','r','i','z','y']):
@@ -780,6 +780,19 @@ if Ana_Season:
         print 'hello',k,j%2,band,diffs
         axb[k][j%2].hist(diffs,bins=80)
  
+    filtercolors = {'u':'b', 'g':'c', 'r':'g', 'i':'y', 'z':'r', 'y':'m'}
+    selc=sel_season[np.where(sel_season['filter']!='u')]
+    
+    figc, axc = plt.subplots(ncols=1, nrows=2, figsize=(10,9))
+    diffs=[jo-io for io, jo in zip(selc['expMJD'][:-1], selc['expMJD'][1:])]
+   
+    axc[0].hist(diffs,bins=80)
+
+    for j,band in enumerate(['g']):
+        seld=selc[np.where(selc['filter']==band)]
+        axc[1].plot(seld['expMJD']-np.min(selc['expMJD']),seld['airmass'],filtercolors[band]+'o')
+
+
     plt.show()
 
 if Ana_Cadence:
@@ -992,9 +1005,9 @@ if Dump_in_File:
 #m5sigmadepth_mean:
 #m5sigmadepth_recalc:
 #Nexp:
-    legend='#band #mjd #exptime #seeing #moon_frac #sky #kAtm #airmass #m5sigmadepth #Nexp'
+    legend='#band #mjd #exptime #seeing #moon_frac #sky #kAtm #airmass #FWHMgeom #FWHMeff #m5sigmadepth #Nexp'
     
-    todisplay=['filter','expMJD','expTime','rawSeeing','moonPhase','filtSkyBrightness','airmass']
+    todisplay=['filter','expMJD','expTime','rawSeeing','moonPhase','filtSkyBrightness','airmass','FWHMgeom','FWHMeff']
 
     toprocess=thedict[0]['dataSlice']
     params=parameters()
@@ -1016,11 +1029,13 @@ if Dump_in_File:
             toprint+=str(format(np.mean(val['filtSkyBrightness']),'.7f'))+' '
             toprint+=str(params.kAtm[filtre])+' '
             toprint+=str(format(np.mean(val['airmass']),'.7f'))+' '
+            toprint+=str(format(np.mean(val['FWHMgeom']),'.7f'))+' '
+            toprint+=str(format(np.mean(val['FWHMeff']),'.7f'))+' '
             toprint+=str(format(np.mean(val['fiveSigmaDepth']),'.7f'))+' '
             toprint+=str(len(val))
             #m5_coadd=Get_fiveSigmaDepth_coadd(len(val),np.mean(val['fiveSigmaDepth']))
             m5_coadd=Get_fiveSigmaDepth_coadd(1.,np.mean(val['fiveSigmaDepth']))
-            print 'hello',np.mean(val['fiveSigmaDepth']),m5_coadd
+            #print 'hello',np.mean(val['fiveSigmaDepth']),m5_coadd
             outputfile.write(toprint+'\n')
             print toprint
         
